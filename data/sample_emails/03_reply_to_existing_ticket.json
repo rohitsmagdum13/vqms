@@ -1,0 +1,37 @@
+{
+  "id": "AAMkAGI2TG93AAA_SAMPLE_003",
+  "internetMessageId": "<sample-003@example.com>",
+  "conversationId": "AAQkAGI2TG93AAA_CONV_001",
+  "subject": "Re: Invoice Query - PO#12345",
+  "receivedDateTime": "2026-03-27T14:15:00Z",
+  "hasAttachments": false,
+  "isRead": false,
+  "from": {
+    "emailAddress": {
+      "name": "Rajesh Kumar",
+      "address": "rajesh.kumar@vendorcorp.com"
+    }
+  },
+  "toRecipients": [
+    {
+      "emailAddress": {
+        "name": "Vendor Support",
+        "address": "vendorsupport@hexaware.com"
+      }
+    }
+  ],
+  "body": {
+    "contentType": "text",
+    "content": "Hi,\n\nThank you for the acknowledgment (Ticket INC0012345). I wanted to add some additional information:\n\n- The invoice was sent to accounts.payable@hexaware.com on March 15\n- Our bank details were updated last month. Please use the new SWIFT code: HDFC0001234\n- The correct GST number is 27AABCU9603R1ZM\n\nPlease update the ticket with these details.\n\nThanks,\nRajesh"
+  },
+  "internetMessageHeaders": [
+    {"name": "From", "value": "rajesh.kumar@vendorcorp.com"},
+    {"name": "To", "value": "vendorsupport@hexaware.com"},
+    {"name": "Subject", "value": "Re: Invoice Query - PO#12345"},
+    {"name": "Date", "value": "Thu, 27 Mar 2026 14:15:00 +0530"},
+    {"name": "Message-ID", "value": "<sample-003@example.com>"},
+    {"name": "In-Reply-To", "value": "<sample-001@example.com>"},
+    {"name": "References", "value": "<sample-001@example.com>"}
+  ],
+  "attachments": []
+}

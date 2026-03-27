@@ -1,0 +1,36 @@
+{
+  "id": "AAMkAGI2TG93AAA_SAMPLE_002",
+  "internetMessageId": "<sample-002@example.com>",
+  "conversationId": "AAQkAGI2TG93AAA_CONV_002",
+  "subject": "URGENT: Overdue Payment - Invoice #INV-2026-0038",
+  "receivedDateTime": "2026-03-27T11:30:00Z",
+  "hasAttachments": false,
+  "isRead": false,
+  "from": {
+    "emailAddress": {
+      "name": "Priya Sharma",
+      "address": "priya.sharma@techsolutions.in"
+    }
+  },
+  "toRecipients": [
+    {
+      "emailAddress": {
+        "name": "Vendor Support",
+        "address": "vendorsupport@hexaware.com"
+      }
+    }
+  ],
+  "body": {
+    "contentType": "text",
+    "content": "Dear Hexaware Vendor Support,\n\nThis is my THIRD follow-up regarding Invoice #INV-2026-0038 (PO#98765) which is now 45 days overdue.\n\nInvoice Details:\n- Invoice Number: INV-2026-0038\n- PO Number: PO#98765\n- Amount: $120,000 USD\n- Invoice Date: February 10, 2026\n- Due Date: March 12, 2026\n- Days Overdue: 45\n\nWe have not received any payment or communication despite two previous emails sent on March 12 and March 20. This delay is causing significant cash flow issues for our organization.\n\nIf payment is not processed within the next 5 business days, we will be forced to:\n1. Suspend all ongoing project deliverables\n2. Escalate to our legal department\n3. Apply late payment penalties as per our contract terms (1.5% per month)\n\nPlease treat this as a matter of highest priority.\n\nRegards,\nPriya Sharma\nCFO, Tech Solutions India Pvt. Ltd.\nDirect: +91-22-4567-8901\nEmail: priya.sharma@techsolutions.in"
+  },
+  "internetMessageHeaders": [
+    {"name": "From", "value": "priya.sharma@techsolutions.in"},
+    {"name": "To", "value": "vendorsupport@hexaware.com"},
+    {"name": "Subject", "value": "URGENT: Overdue Payment - Invoice #INV-2026-0038"},
+    {"name": "Date", "value": "Thu, 27 Mar 2026 11:30:00 +0530"},
+    {"name": "Message-ID", "value": "<sample-002@example.com>"},
+    {"name": "X-Priority", "value": "1"}
+  ],
+  "attachments": []
+}

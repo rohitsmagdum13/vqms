@@ -1,0 +1,50 @@
+{
+  "id": "AAMkAGI2TG93AAA_SAMPLE_004",
+  "internetMessageId": "<sample-004@example.com>",
+  "conversationId": "AAQkAGI2TG93AAA_CONV_004",
+  "subject": "Contract Renewal Discussion - MSA-2024-HEX-089",
+  "receivedDateTime": "2026-03-27T09:00:00Z",
+  "hasAttachments": true,
+  "isRead": false,
+  "from": {
+    "emailAddress": {
+      "name": "Amanda Chen",
+      "address": "amanda.chen@globalservices.com"
+    }
+  },
+  "toRecipients": [
+    {
+      "emailAddress": {
+        "name": "Vendor Support",
+        "address": "vendorsupport@hexaware.com"
+      }
+    }
+  ],
+  "body": {
+    "contentType": "html",
+    "content": "<html><body><p>Dear Hexaware Team,</p><p>Our Master Service Agreement <b>MSA-2024-HEX-089</b> is expiring on <b>April 30, 2026</b>. We would like to initiate the renewal process.</p><p>Key points for discussion:</p><ul><li>Updated rate card for FY 2026-27 (attached)</li><li>Addition of AI/ML services to the scope</li><li>Revised SLA terms for critical support (4-hour response instead of 8-hour)</li><li>Volume discount for projected 30% increase in engagement</li></ul><p>I have attached the proposed rate card and our requirements document. Could we schedule a call next week to discuss?</p><p>Best regards,<br/>Amanda Chen<br/>VP, Strategic Partnerships<br/>Global Services Inc.<br/>amanda.chen@globalservices.com</p></body></html>"
+  },
+  "internetMessageHeaders": [
+    {"name": "From", "value": "amanda.chen@globalservices.com"},
+    {"name": "To", "value": "vendorsupport@hexaware.com"},
+    {"name": "Subject", "value": "Contract Renewal Discussion - MSA-2024-HEX-089"},
+    {"name": "Date", "value": "Thu, 27 Mar 2026 09:00:00 +0000"},
+    {"name": "Message-ID", "value": "<sample-004@example.com>"}
+  ],
+  "attachments": [
+    {
+      "id": "ATT_001",
+      "name": "Proposed_Rate_Card_FY2026-27.pdf",
+      "contentType": "application/pdf",
+      "size": 245000,
+      "contentBytes": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCg=="
+    },
+    {
+      "id": "ATT_002",
+      "name": "Requirements_Document_2026.docx",
+      "contentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "size": 189000,
+      "contentBytes": "UEsDBBQAAAAIAA=="
+    }
+  ]
+}

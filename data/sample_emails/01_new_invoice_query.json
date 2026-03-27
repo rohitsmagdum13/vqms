@@ -1,0 +1,35 @@
+{
+  "id": "AAMkAGI2TG93AAA_SAMPLE_001",
+  "internetMessageId": "<sample-001@example.com>",
+  "conversationId": "AAQkAGI2TG93AAA_CONV_001",
+  "subject": "Invoice Query - PO#12345",
+  "receivedDateTime": "2026-03-27T10:00:00Z",
+  "hasAttachments": false,
+  "isRead": false,
+  "from": {
+    "emailAddress": {
+      "name": "Rajesh Kumar",
+      "address": "rajesh.kumar@vendorcorp.com"
+    }
+  },
+  "toRecipients": [
+    {
+      "emailAddress": {
+        "name": "Vendor Support",
+        "address": "vendorsupport@hexaware.com"
+      }
+    }
+  ],
+  "body": {
+    "contentType": "text",
+    "content": "Dear Support Team,\n\nI am writing to inquire about the status of Invoice #INV-2026-0042 related to Purchase Order PO#12345.\n\nWe submitted this invoice on March 15, 2026, for an amount of $45,000 USD for the Q1 IT consulting services. As of today, we have not received any confirmation of receipt or expected payment timeline.\n\nCould you please:\n1. Confirm receipt of the invoice\n2. Provide the expected payment date\n3. Let us know if any additional documentation is required\n\nOur payment terms are Net 30, so we would appreciate a timely response.\n\nBest regards,\nRajesh Kumar\nAccounts Receivable\nVendor Corp International\nPhone: +91-9876543210\nEmail: rajesh.kumar@vendorcorp.com"
+  },
+  "internetMessageHeaders": [
+    {"name": "From", "value": "rajesh.kumar@vendorcorp.com"},
+    {"name": "To", "value": "vendorsupport@hexaware.com"},
+    {"name": "Subject", "value": "Invoice Query - PO#12345"},
+    {"name": "Date", "value": "Thu, 27 Mar 2026 10:00:00 +0530"},
+    {"name": "Message-ID", "value": "<sample-001@example.com>"}
+  ],
+  "attachments": []
+}
