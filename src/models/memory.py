@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +82,14 @@ class VendorProfileCache(BaseModel):
     cached_at: datetime = Field(..., description="Cache timestamp")
     ttl_seconds: int = Field(default=3600, ge=0, description="Cache TTL in seconds")
 
+    @field_validator("contact_email")
+    @classmethod
+    def _validate_contact_email(cls, v: str) -> str:
+        if "@" not in v:
+            msg = f"Invalid contact email format: {v!r}"
+            raise ValueError(msg)
+        return v.strip().lower()
+
 
 class EmbeddingRecord(BaseModel):
     """Vector embedding record for semantic search in the VQMS knowledge base.
@@ -112,3 +120,11 @@ class EmbeddingRecord(BaseModel):
         default_factory=dict, description="Filtering metadata"
     )
     created_at: datetime = Field(..., description="Embedding creation timestamp")
+
+    @field_validator("embedding")
+    @classmethod
+    def _validate_embedding_dimensions(cls, v: list[float]) -> list[float]:
+        if len(v) == 0:
+            msg = "Embedding vector must not be empty"
+            raise ValueError(msg)
+        return v

@@ -8,15 +8,32 @@ common data transformation operations.
 
 from __future__ import annotations
 
+import dataclasses
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
+from enum import Enum
 from typing import Any
+
+import orjson
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
 
 class HelperError(Exception):
     """Raised when helper operations fail."""
+
+
+def _json_default(obj: object) -> object:
+    """Custom serializer for types orjson doesn't handle natively."""
+    if isinstance(obj, BaseModel):
+        return obj.model_dump(mode="json")
+    if isinstance(obj, Enum):
+        return obj.value
+    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+        return dataclasses.asdict(obj)
+    msg = f"Object of type {type(obj).__name__} is not JSON serializable"
+    raise TypeError(msg)
 
 
 def utc_now() -> datetime:
@@ -28,7 +45,7 @@ def utc_now() -> datetime:
     Raises:
         HelperError: When timestamp generation fails.
     """
-    raise NotImplementedError("Pending implementation")
+    return datetime.now(UTC)
 
 
 def safe_json_serialize(obj: Any) -> str:
@@ -45,7 +62,10 @@ def safe_json_serialize(obj: Any) -> str:
     Raises:
         HelperError: When serialization fails.
     """
-    raise NotImplementedError("Pending implementation")
+    try:
+        return orjson.dumps(obj, default=_json_default).decode("utf-8")
+    except TypeError as exc:
+        raise HelperError(f"JSON serialization failed: {exc}") from exc
 
 
 def truncate_for_log(text: str, max_length: int = 500) -> str:
@@ -61,4 +81,6 @@ def truncate_for_log(text: str, max_length: int = 500) -> str:
     Raises:
         HelperError: When truncation fails.
     """
-    raise NotImplementedError("Pending implementation")
+    if len(text) <= max_length:
+        return text
+    return text[:max_length] + "...[truncated]"

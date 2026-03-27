@@ -7,7 +7,17 @@ All fixtures follow pytest-asyncio patterns.
 
 from __future__ import annotations
 
+import os
+from datetime import UTC, datetime, timedelta
+
 import pytest
+
+# Moto requires dummy AWS credentials to be set
+os.environ.setdefault("AWS_ACCESS_KEY_ID", "testing")
+os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "testing")
+os.environ.setdefault("AWS_SECURITY_TOKEN", "testing")
+os.environ.setdefault("AWS_SESSION_TOKEN", "testing")
+os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
 
 
 @pytest.fixture
@@ -60,4 +70,62 @@ def mock_bedrock_response() -> dict[str, object]:
             "output_tokens": 50,
         },
         "stop_reason": "end_turn",
+    }
+
+
+@pytest.fixture
+def sample_ticket_record() -> dict[str, object]:
+    """Provide a sample ticket record for testing."""
+    now = datetime.now(UTC)
+    return {
+        "ticket_number": "INC0012345",
+        "sys_id": "abc123def456",
+        "status": "new",
+        "priority": "medium",
+        "short_description": "Invoice query for PO#12345",
+        "email_message_id": "AAMkAGI2TG93AAA=",
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+        "sla_breach_at": (now + timedelta(hours=24)).isoformat(),
+        "correlation_id": "test-correlation-00000000-0000-0000-0000-000000000000",
+    }
+
+
+@pytest.fixture
+def sample_analysis_result() -> dict[str, object]:
+    """Provide a sample email analysis result for testing."""
+    return {
+        "email_message_id": "AAMkAGI2TG93AAA=",
+        "intent": "inquiry",
+        "entities": {"vendor_name": ["Test Vendor Corp"], "po_number": ["PO#12345"]},
+        "urgency": "medium",
+        "sentiment": "neutral",
+        "confidence": 0.92,
+        "is_multi_issue": False,
+        "is_reply": False,
+        "summary": "Vendor inquiring about invoice status for PO#12345",
+        "correlation_id": "test-correlation-00000000-0000-0000-0000-000000000000",
+    }
+
+
+@pytest.fixture
+def sample_budget() -> dict[str, object]:
+    """Provide a sample budget configuration for testing."""
+    return {
+        "max_tokens_in": 8192,
+        "max_tokens_out": 4096,
+        "currency_limit": 0.50,
+        "max_hops": 4,
+    }
+
+
+@pytest.fixture
+def sample_agent_message() -> dict[str, object]:
+    """Provide a sample agent message envelope for testing."""
+    return {
+        "id": "msg-001",
+        "role": "worker",
+        "content": "Analysis complete for email AAMkAGI2TG93AAA=",
+        "correlation_id": "test-correlation-00000000-0000-0000-0000-000000000000",
+        "timestamp": datetime.now(UTC).isoformat(),
     }

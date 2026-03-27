@@ -8,6 +8,7 @@ for distributed tracing per the core principle: "Correlation Everywhere."
 from __future__ import annotations
 
 import logging
+import uuid
 from contextvars import ContextVar
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ def generate_correlation_id() -> str:
     Raises:
         CorrelationError: When generation fails.
     """
-    raise NotImplementedError("Pending implementation")
+    return str(uuid.uuid4())
 
 
 def get_correlation_id() -> str | None:
@@ -68,4 +69,14 @@ def ensure_correlation_id(correlation_id: str | None = None) -> str:
     Raises:
         CorrelationError: When ID resolution fails.
     """
-    raise NotImplementedError("Pending implementation")
+    if correlation_id is not None:
+        _correlation_id_var.set(correlation_id)
+        return correlation_id
+
+    existing = _correlation_id_var.get()
+    if existing is not None:
+        return existing
+
+    new_id = generate_correlation_id()
+    _correlation_id_var.set(new_id)
+    return new_id

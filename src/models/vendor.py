@@ -12,7 +12,7 @@ import logging
 from datetime import datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +62,14 @@ class VendorProfile(BaseModel):
     metadata: dict[str, str] = Field(
         default_factory=dict, description="Additional Salesforce fields"
     )
+
+    @field_validator("contact_email")
+    @classmethod
+    def _validate_contact_email(cls, v: str) -> str:
+        if "@" not in v:
+            msg = f"Invalid contact email format: {v!r}"
+            raise ValueError(msg)
+        return v.strip().lower()
 
 
 class VendorMatch(BaseModel):

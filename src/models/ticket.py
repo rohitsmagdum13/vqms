@@ -9,10 +9,13 @@ Maps to workflow.ticket_link and workflow.routing_decision PostgreSQL tables.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+_TICKET_NUMBER_PATTERN = re.compile(r"^INC\d{7,10}$")
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +89,17 @@ class TicketRecord(BaseModel):
         default=None, description="SLA breach timestamp"
     )
     correlation_id: str = Field(..., description="Pipeline correlation ID")
+
+    @field_validator("ticket_number")
+    @classmethod
+    def _validate_ticket_number(cls, v: str) -> str:
+        if not _TICKET_NUMBER_PATTERN.match(v):
+            msg = (
+                f"Invalid ticket number format: {v!r}."
+                " Expected INC followed by 7-10 digits."
+            )
+            raise ValueError(msg)
+        return v
 
 
 class TicketLink(BaseModel):

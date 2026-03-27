@@ -11,6 +11,10 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Any
+
+import boto3
+from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +45,25 @@ class S3Config:
     endpoint_url: str | None = None
 
 
-async def upload_object(bucket: VQMSBucket, key: str, data: bytes, *, content_type: str = "application/octet-stream", metadata: dict[str, str] | None = None, config: S3Config | None = None, correlation_id: str | None = None) -> str:
+def _build_client(config: S3Config | None) -> Any:
+    """Build a boto3 S3 client from config."""
+    cfg = config or S3Config()
+    kwargs: dict[str, Any] = {"region_name": cfg.region}
+    if cfg.endpoint_url is not None:
+        kwargs["endpoint_url"] = cfg.endpoint_url
+    return boto3.client("s3", **kwargs)
+
+
+async def upload_object(
+    bucket: VQMSBucket,
+    key: str,
+    data: bytes,
+    *,
+    content_type: str = "application/octet-stream",
+    metadata: dict[str, str] | None = None,
+    config: S3Config | None = None,
+    correlation_id: str | None = None,
+) -> str:
     """Upload an object to an S3 bucket.
 
     Args:
@@ -60,10 +82,40 @@ async def upload_object(bucket: VQMSBucket, key: str, data: bytes, *, content_ty
     Raises:
         S3ClientError: When upload fails.
     """
-    raise NotImplementedError("Pending implementation")
+    try:
+        client = _build_client(config)
+        put_kwargs: dict[str, Any] = {
+            "Bucket": str(bucket),
+            "Key": key,
+            "Body": data,
+            "ContentType": content_type,
+        }
+        if metadata:
+            put_kwargs["Metadata"] = metadata
+        client.put_object(**put_kwargs)
+        logger.info(
+            "s3_object_uploaded",
+            extra={
+                "bucket": str(bucket),
+                "key": key,
+                "size_bytes": len(data),
+                "content_type": content_type,
+                "correlation_id": correlation_id,
+            },
+        )
+        return key
+    except ClientError as exc:
+        msg = f"S3 upload failed for {bucket}/{key}: {exc}"
+        raise S3ClientError(msg) from exc
 
 
-async def download_object(bucket: VQMSBucket, key: str, *, config: S3Config | None = None, correlation_id: str | None = None) -> bytes:
+async def download_object(
+    bucket: VQMSBucket,
+    key: str,
+    *,
+    config: S3Config | None = None,
+    correlation_id: str | None = None,
+) -> bytes:
     """Download an object from an S3 bucket.
 
     Args:
@@ -79,10 +131,32 @@ async def download_object(bucket: VQMSBucket, key: str, *, config: S3Config | No
     Raises:
         S3ClientError: When download fails.
     """
-    raise NotImplementedError("Pending implementation")
+    try:
+        client = _build_client(config)
+        response = client.get_object(Bucket=str(bucket), Key=key)
+        data: bytes = response["Body"].read()
+        logger.info(
+            "s3_object_downloaded",
+            extra={
+                "bucket": str(bucket),
+                "key": key,
+                "size_bytes": len(data),
+                "correlation_id": correlation_id,
+            },
+        )
+        return data
+    except ClientError as exc:
+        msg = f"S3 download failed for {bucket}/{key}: {exc}"
+        raise S3ClientError(msg) from exc
 
 
-async def delete_object(bucket: VQMSBucket, key: str, *, config: S3Config | None = None, correlation_id: str | None = None) -> None:
+async def delete_object(
+    bucket: VQMSBucket,
+    key: str,
+    *,
+    config: S3Config | None = None,
+    correlation_id: str | None = None,
+) -> None:
     """Delete an object from an S3 bucket.
 
     Args:
@@ -95,10 +169,30 @@ async def delete_object(bucket: VQMSBucket, key: str, *, config: S3Config | None
     Raises:
         S3ClientError: When deletion fails.
     """
-    raise NotImplementedError("Pending implementation")
+    try:
+        client = _build_client(config)
+        client.delete_object(Bucket=str(bucket), Key=key)
+        logger.info(
+            "s3_object_deleted",
+            extra={
+                "bucket": str(bucket),
+                "key": key,
+                "correlation_id": correlation_id,
+            },
+        )
+    except ClientError as exc:
+        msg = f"S3 delete failed for {bucket}/{key}: {exc}"
+        raise S3ClientError(msg) from exc
 
 
-async def list_objects(bucket: VQMSBucket, prefix: str, *, max_keys: int = 1000, config: S3Config | None = None, correlation_id: str | None = None) -> list[str]:
+async def list_objects(
+    bucket: VQMSBucket,
+    prefix: str,
+    *,
+    max_keys: int = 1000,
+    config: S3Config | None = None,
+    correlation_id: str | None = None,
+) -> list[str]:
     """List object keys in an S3 bucket with a given prefix.
 
     Args:
@@ -115,4 +209,30 @@ async def list_objects(bucket: VQMSBucket, prefix: str, *, max_keys: int = 1000,
     Raises:
         S3ClientError: When listing fails.
     """
-    raise NotImplementedError("Pending implementation")
+    try:
+        client = _build_client(config)
+        response = client.list_objects_v2(
+            Bucket=str(bucket),
+            Prefix=prefix,
+            MaxKeys=max_keys,
+        )
+        keys: list[str] = [
+            obj["Key"]
+            for obj in response.get("Contents", [])
+        ]
+        logger.debug(
+            "s3_objects_listed",
+            extra={
+                "bucket": str(bucket),
+                "prefix": prefix,
+                "count": len(keys),
+                "correlation_id": correlation_id,
+            },
+        )
+        return keys
+    except ClientError as exc:
+        msg = (
+            f"S3 list failed for {bucket}"
+            f" prefix={prefix!r}: {exc}"
+        )
+        raise S3ClientError(msg) from exc

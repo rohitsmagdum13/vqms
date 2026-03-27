@@ -12,6 +12,8 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
+import redis.asyncio as aioredis
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,13 +28,17 @@ class RedisConfig:
     Attributes:
         host: Redis host.
         port: Redis port.
+        password: Redis password (required for Redis Cloud).
         db: Redis database number.
+        ssl: Whether to use TLS (required for Redis Cloud).
         decode_responses: Whether to decode responses to strings.
     """
 
     host: str = "localhost"
     port: int = 6379
+    password: str = ""
     db: int = 0
+    ssl: bool = False
     decode_responses: bool = True
 
 
@@ -110,7 +116,11 @@ def sla_key(ticket_number: str) -> str:
     return f"sla:{ticket_number}"
 
 
-async def create_client(config: RedisConfig, *, correlation_id: str | None = None) -> Any:
+async def create_client(
+    config: RedisConfig,
+    *,
+    correlation_id: str | None = None,
+) -> aioredis.Redis:
     """Create an async Redis client.
 
     Args:
@@ -124,7 +134,28 @@ async def create_client(config: RedisConfig, *, correlation_id: str | None = Non
     Raises:
         RedisClientError: When connection fails.
     """
-    raise NotImplementedError("Pending implementation")
+    try:
+        client: aioredis.Redis = aioredis.Redis(
+            host=config.host,
+            port=config.port,
+            password=config.password or None,
+            db=config.db,
+            ssl=config.ssl,
+            decode_responses=config.decode_responses,
+        )
+        await client.ping()  # type: ignore[misc]
+        logger.info(
+            "redis_client_created",
+            extra={
+                "host": config.host,
+                "port": config.port,
+                "correlation_id": correlation_id,
+            },
+        )
+        return client
+    except Exception as exc:
+        msg = f"Failed to create Redis client: {exc}"
+        raise RedisClientError(msg) from exc
 
 
 async def close_client(client: Any, *, correlation_id: str | None = None) -> None:
@@ -138,7 +169,12 @@ async def close_client(client: Any, *, correlation_id: str | None = None) -> Non
     Raises:
         RedisClientError: When closure fails.
     """
-    raise NotImplementedError("Pending implementation")
+    try:
+        await client.aclose()
+        logger.info("redis_client_closed", extra={"correlation_id": correlation_id})
+    except Exception as exc:
+        msg = f"Failed to close Redis client: {exc}"
+        raise RedisClientError(msg) from exc
 
 
 async def health_check(client: Any, *, correlation_id: str | None = None) -> bool:
@@ -155,4 +191,13 @@ async def health_check(client: Any, *, correlation_id: str | None = None) -> boo
     Raises:
         RedisClientError: When health check fails.
     """
-    raise NotImplementedError("Pending implementation")
+    try:
+        result = await client.ping()
+        logger.debug(
+            "redis_health_check",
+            extra={"result": result, "correlation_id": correlation_id},
+        )
+        return bool(result)
+    except Exception as exc:
+        msg = f"Redis health check failed: {exc}"
+        raise RedisClientError(msg) from exc

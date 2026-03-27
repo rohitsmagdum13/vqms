@@ -8,10 +8,13 @@ Communication Drafting Agent (Step 9) and Quality & Governance Gate (Step 10).
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+_TICKET_NUMBER_PATTERN = re.compile(r"^INC\d{7,10}$")
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +76,17 @@ class DraftEmailPackage(BaseModel):
     prompt_version: str = Field(..., description="Prompt template version")
     tokens_used: int = Field(default=0, ge=0, description="Tokens consumed")
     correlation_id: str = Field(..., description="Pipeline correlation ID")
+
+    @field_validator("ticket_number")
+    @classmethod
+    def _validate_ticket_number(cls, v: str) -> str:
+        if not _TICKET_NUMBER_PATTERN.match(v):
+            msg = (
+                f"Invalid ticket number format: {v!r}."
+                " Expected INC followed by 7-10 digits."
+            )
+            raise ValueError(msg)
+        return v
 
 
 class ValidationReport(BaseModel):

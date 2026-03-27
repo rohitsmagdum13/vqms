@@ -12,7 +12,7 @@ import logging
 from datetime import datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +88,20 @@ class EmailMessage(BaseModel):
         default_factory=list, description="Attachment metadata"
     )
     correlation_id: str = Field(..., description="Pipeline correlation ID")
+
+    @field_validator("sender_email")
+    @classmethod
+    def _validate_sender_email(cls, v: str) -> str:
+        if "@" not in v:
+            msg = f"Invalid sender email format: {v!r}"
+            raise ValueError(msg)
+        return v.strip().lower()
+
+    @model_validator(mode="after")
+    def _sync_has_attachments(self) -> EmailMessage:
+        if self.attachments and not self.has_attachments:
+            object.__setattr__(self, "has_attachments", True)
+        return self
 
 
 class ParsedEmailPayload(BaseModel):

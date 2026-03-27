@@ -99,3 +99,9 @@ known_first_party = ["src"]
 [tool.black]
 line-length = 88
 target-version = ["py312"]
+
+[dependency-groups]
+dev = [
+    "boto3-stubs>=1.42.77",
+    "moto[events,s3,sqs]>=5.1.22",
+]

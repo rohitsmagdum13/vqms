@@ -223,3 +223,114 @@ vqms/
 | Track a new task                          | `tasks/todo.md`                       |
 | Log a lesson learned                      | `tasks/lessons.md`                    |
 | Write high-level docs                     | `Doc/`                                |
+
+---
+
+## Phase 1 -- What was built
+
+Phase 1 is the foundation layer. Before any AI agents can analyze emails or draft replies, the system needs to know what an email looks like, how to store it, and where to cache things for speed. That's what this phase sets up: data shapes, database tables, and caching plumbing.
+
+### Data models (src/models/)
+
+These are Pydantic classes that define the shape of every object flowing through the system. If data enters VQMS, one of these models validates it.
+
+| Model | File | What it represents |
+|-------|------|--------------------|
+| `EmailMessage` | email.py | An incoming vendor email. Sender, subject, recipients, Graph API IDs. Has a validator that normalizes email addresses to lowercase and auto-syncs the `has_attachments` flag. |
+| `EmailAttachment` | email.py | A file attached to an email. Filename, size, S3 storage key, SHA-256 checksum. |
+| `ParsedEmailPayload` | email.py | The extracted body text and headers after MIME parsing. Tracks whether the email is a reply and which thread it belongs to. |
+| `VendorProfile` | vendor.py | A vendor pulled from Salesforce. Name, tier (platinum/gold/silver/bronze), SLA hours, account manager. Email is validated on the way in. |
+| `VendorMatch` | vendor.py | The result of trying to match an email to a vendor. Includes which method worked (exact email, vendor ID, or fuzzy name match) and a confidence score. |
+| `TicketRecord` | ticket.py | A ServiceNow ticket. Ticket number is validated against the `INC` + 7-10 digits format. Status, priority, SLA breach timestamp. |
+| `TicketLink` | ticket.py | Links an email to a ticket. Records whether the ticket was created, updated, or reopened by that email. |
+| `RoutingDecision` | ticket.py | The orchestrator's call on where an email goes: full auto, low confidence, existing ticket, reopen, or escalation. |
+| `AnalysisResult` | workflow.py | What the Email Analysis Agent figured out: intent, urgency, sentiment, extracted entities, confidence score. |
+| `CaseExecution` | workflow.py | Tracks one email's journey from intake to resolution. Current step, hop count (max 4), error state. |
+| `WorkflowState` | workflow.py | The LangGraph state bag passed between nodes. Holds the case, vendor match, existing tickets, budget, and message history. |
+| `DraftEmailPackage` | communication.py | A draft reply to a vendor. HTML body, plain text fallback, SLA statement, threading headers. Ticket number is validated. |
+| `ValidationReport` | communication.py | The Quality Gate's report card. Did the draft pass? Ticket number valid? SLA wording correct? PII detected? |
+| `EpisodicMemory` | memory.py | A resolved case stored for future reference. Intent, resolution summary, outcome, searchable tags, 180-day TTL. |
+| `VendorProfileCache` | memory.py | Cached vendor info for fast lookups. Same data as `VendorProfile` but with a TTL and interaction count. |
+| `EmbeddingRecord` | memory.py | A vector embedding for semantic search. 1024-dimensional vector (Amazon Titan), source text, metadata for filtering. |
+| `Budget` | budget.py | Per-request cost limits. Max tokens in/out, dollar limit, max hops, deadline. Frozen dataclass -- can't be mutated once created. |
+| `BudgetUsage` | budget.py | Mutable tracker that accumulates actual token and cost usage as agents run. |
+| `AgentMessage` | messages.py | The envelope for all inter-agent communication. Role, content, tool calls, correlation ID, timestamp. |
+| `ToolCall` | messages.py | A tool invocation record inside an agent message. Tool name + arguments. |
+
+### Database migrations (src/db/migrations/)
+
+Five SQL files that create 5 schemas and 11 tables in PostgreSQL:
+
+| Migration | Schema | Tables | What they store |
+|-----------|--------|--------|----------------|
+| 001 | `intake` | `email_messages`, `email_attachments` | Raw email metadata. `message_id` is the idempotency key (if we've seen this Graph API ID before, skip it). Attachments reference their parent email with a foreign key cascade. |
+| 002 | `workflow` | `case_execution`, `ticket_link`, `routing_decision` | The processing pipeline. Each case tracks an email from intake to resolution. Ticket links map emails to ServiceNow tickets. Routing decisions record why the orchestrator chose a particular path. |
+| 003 | `memory` | `vendor_profile_cache`, `episodic_memory`, `embedding_index` | The memory layer. Vendor cache backs up the Redis hot cache. Episodic memory stores resolved cases with a 180-day TTL. Embedding index uses pgvector with an HNSW index for semantic search over 1024-dim vectors. |
+| 004 | `audit` | `action_log`, `validation_results` | Every side-effect in the system writes to `action_log`. Every draft validation writes to `validation_results`. Nothing happens without a paper trail. |
+| 005 | `reporting` | `sla_metrics` | SLA performance data. Response times, breach flags, escalation levels. Feeds the dashboards. |
+
+The migration runner (`src/db/connection.py`) tracks which files have been applied in a `public.schema_migrations` table so it won't re-run them.
+
+### Redis key helpers (src/cache/redis_client.py)
+
+Six key-builder functions, one per cache family. Each returns a namespaced string like `vendor:001ABC123DEF456`.
+
+| Function | Key pattern | What it caches |
+|----------|-------------|---------------|
+| `idempotency_key()` | `idempotency:{message_id}` | Prevents processing the same email twice. Set once when an email is ingested, checked before processing. |
+| `thread_key()` | `thread:{conversation_id}` | Thread correlation data. Groups emails in the same conversation so replies get routed to existing tickets. |
+| `ticket_key()` | `ticket:{ticket_number}` | Cached ticket data from ServiceNow. Saves an API call when we need to check ticket status mid-pipeline. |
+| `workflow_key()` | `workflow:{case_id}` | Current workflow state. Lets the orchestrator resume a case if something restarts. |
+| `vendor_key()` | `vendor:{vendor_id}` | Vendor profile hot cache. Backed by `memory.vendor_profile_cache` in PostgreSQL. Avoids hitting Salesforce on every email. |
+| `sla_key()` | `sla:{ticket_number}` | SLA timer data. Tracks when warnings and escalations should fire. |
+
+The client itself (`create_client`, `close_client`, `health_check`) uses `redis.asyncio` and pings on creation to verify the connection is alive.
+
+### Utility modules
+
+Four utility files that everything else depends on:
+
+- **correlation.py** -- Generates UUID v4 correlation IDs and stores them in a `ContextVar`. Every function in the pipeline carries a `correlation_id` parameter. If you don't pass one, `ensure_correlation_id()` will generate one and stash it in the context for downstream code to pick up.
+- **logger.py** -- Configures structlog for JSON output. Automatically injects the current correlation ID into every log line. No `print()` anywhere in this project.
+- **validation.py** -- Input validators for system boundaries: email addresses (via `email-validator`), ServiceNow ticket numbers (`INC` + 7-10 digits), UUID v4 correlation IDs, Salesforce Account IDs (`001` + 12-15 alphanum chars), and a PII sanitizer that redacts emails, SSNs, and credit card numbers from log text.
+- **helpers.py** -- `utc_now()` returns a timezone-aware UTC timestamp. `safe_json_serialize()` uses `orjson` and handles Pydantic models, dataclasses, enums, and datetimes. `truncate_for_log()` chops long strings for safe logging.
+
+### How the pieces connect
+
+Here's the path an email takes through the Phase 1 infrastructure:
+
+```
+Vendor sends email
+      |
+      v
+Graph API delivers it
+      |
+      v
+EmailMessage model validates the data
+      |
+      v
+Raw email stored in S3 (vqms-email-raw-prod bucket)
+      |
+      v
+Metadata inserted into intake.email_messages table
+      |
+      v
+Redis sets idempotency:{message_id} so we never process it again
+      |
+      v
+CaseExecution record created in workflow.case_execution
+      |
+      v
+(Phase 2+ picks it up from here: analysis, vendor resolution, ticketing...)
+```
+
+Every step carries a `correlation_id`. Every side-effect writes to `audit.action_log`. If something crashes and restarts, the idempotency key in Redis prevents duplicate processing, and the case execution record in PostgreSQL tells the system where it left off.
+
+### Test coverage
+
+40 unit tests across all 8 model files. They verify:
+- Valid construction with real-world data
+- Field constraints (confidence between 0 and 1, hop count max 4, SLA hours minimum 1)
+- Validators (bad email formats rejected, bad ticket numbers rejected, empty embeddings rejected)
+- Defaults (new tickets start as "new", workflows start as "pending", budgets default to $0.50)
+- Immutability (Budget is frozen, BudgetUsage is mutable)

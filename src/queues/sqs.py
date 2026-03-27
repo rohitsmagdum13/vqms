@@ -8,10 +8,14 @@ Queue names from Architecture Doc Section 4.
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
+
+import boto3
+from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +56,33 @@ class SQSConfig:
     endpoint_url: str | None = None
 
 
-async def send_message(queue: VQMSQueue, body: dict[str, Any], *, message_group_id: str | None = None, deduplication_id: str | None = None, config: SQSConfig | None = None, correlation_id: str | None = None) -> str:
+def _build_client(config: SQSConfig | None) -> Any:
+    """Build a boto3 SQS client from config."""
+    cfg = config or SQSConfig()
+    kwargs: dict[str, Any] = {"region_name": cfg.region}
+    if cfg.endpoint_url is not None:
+        kwargs["endpoint_url"] = cfg.endpoint_url
+    return boto3.client("sqs", **kwargs)
+
+
+def _get_queue_url(
+    client: Any,
+    queue: VQMSQueue,
+) -> str:
+    """Resolve SQS queue name to URL."""
+    response = client.get_queue_url(QueueName=str(queue))
+    return response["QueueUrl"]  # type: ignore[no-any-return]
+
+
+async def send_message(
+    queue: VQMSQueue,
+    body: dict[str, Any],
+    *,
+    message_group_id: str | None = None,
+    deduplication_id: str | None = None,
+    config: SQSConfig | None = None,
+    correlation_id: str | None = None,
+) -> str:
     """Send a message to an SQS queue.
 
     Args:
@@ -70,10 +100,42 @@ async def send_message(queue: VQMSQueue, body: dict[str, Any], *, message_group_
     Raises:
         SQSError: When message sending fails.
     """
-    raise NotImplementedError("Pending implementation")
+    try:
+        client = _build_client(config)
+        queue_url = _get_queue_url(client, queue)
+        send_kwargs: dict[str, Any] = {
+            "QueueUrl": queue_url,
+            "MessageBody": json.dumps(body),
+        }
+        if message_group_id is not None:
+            send_kwargs["MessageGroupId"] = message_group_id
+        if deduplication_id is not None:
+            send_kwargs["MessageDeduplicationId"] = deduplication_id
+
+        response = client.send_message(**send_kwargs)
+        message_id: str = response["MessageId"]
+        logger.info(
+            "sqs_message_sent",
+            extra={
+                "queue": str(queue),
+                "message_id": message_id,
+                "correlation_id": correlation_id,
+            },
+        )
+        return message_id
+    except ClientError as exc:
+        msg = f"SQS send failed for {queue}: {exc}"
+        raise SQSError(msg) from exc
 
 
-async def receive_messages(queue: VQMSQueue, *, max_messages: int = 10, wait_time_seconds: int = 20, config: SQSConfig | None = None, correlation_id: str | None = None) -> list[dict[str, Any]]:
+async def receive_messages(
+    queue: VQMSQueue,
+    *,
+    max_messages: int = 10,
+    wait_time_seconds: int = 20,
+    config: SQSConfig | None = None,
+    correlation_id: str | None = None,
+) -> list[dict[str, Any]]:
     """Receive messages from an SQS queue using long polling.
 
     Args:
@@ -90,10 +152,44 @@ async def receive_messages(queue: VQMSQueue, *, max_messages: int = 10, wait_tim
     Raises:
         SQSError: When message receiving fails.
     """
-    raise NotImplementedError("Pending implementation")
+    try:
+        client = _build_client(config)
+        queue_url = _get_queue_url(client, queue)
+        response = client.receive_message(
+            QueueUrl=queue_url,
+            MaxNumberOfMessages=min(max_messages, 10),
+            WaitTimeSeconds=wait_time_seconds,
+        )
+        raw_messages = response.get("Messages", [])
+        result: list[dict[str, Any]] = [
+            {
+                "message_id": msg["MessageId"],
+                "receipt_handle": msg["ReceiptHandle"],
+                "body": json.loads(msg["Body"]),
+            }
+            for msg in raw_messages
+        ]
+        logger.debug(
+            "sqs_messages_received",
+            extra={
+                "queue": str(queue),
+                "count": len(result),
+                "correlation_id": correlation_id,
+            },
+        )
+        return result
+    except ClientError as exc:
+        msg = f"SQS receive failed for {queue}: {exc}"
+        raise SQSError(msg) from exc
 
 
-async def delete_message(queue: VQMSQueue, receipt_handle: str, *, config: SQSConfig | None = None, correlation_id: str | None = None) -> None:
+async def delete_message(
+    queue: VQMSQueue,
+    receipt_handle: str,
+    *,
+    config: SQSConfig | None = None,
+    correlation_id: str | None = None,
+) -> None:
     """Delete a message from an SQS queue after successful processing.
 
     Args:
@@ -106,10 +202,31 @@ async def delete_message(queue: VQMSQueue, receipt_handle: str, *, config: SQSCo
     Raises:
         SQSError: When message deletion fails.
     """
-    raise NotImplementedError("Pending implementation")
+    try:
+        client = _build_client(config)
+        queue_url = _get_queue_url(client, queue)
+        client.delete_message(
+            QueueUrl=queue_url,
+            ReceiptHandle=receipt_handle,
+        )
+        logger.info(
+            "sqs_message_deleted",
+            extra={
+                "queue": str(queue),
+                "correlation_id": correlation_id,
+            },
+        )
+    except ClientError as exc:
+        msg = f"SQS delete failed for {queue}: {exc}"
+        raise SQSError(msg) from exc
 
 
-async def get_dlq_messages(*, max_messages: int = 10, config: SQSConfig | None = None, correlation_id: str | None = None) -> list[dict[str, Any]]:
+async def get_dlq_messages(
+    *,
+    max_messages: int = 10,
+    config: SQSConfig | None = None,
+    correlation_id: str | None = None,
+) -> list[dict[str, Any]]:
     """Retrieve messages from the dead-letter queue for inspection.
 
     Args:
@@ -124,4 +241,10 @@ async def get_dlq_messages(*, max_messages: int = 10, config: SQSConfig | None =
     Raises:
         SQSError: When DLQ retrieval fails.
     """
-    raise NotImplementedError("Pending implementation")
+    return await receive_messages(
+        VQMSQueue.DLQ,
+        max_messages=max_messages,
+        wait_time_seconds=0,
+        config=config,
+        correlation_id=correlation_id,
+    )

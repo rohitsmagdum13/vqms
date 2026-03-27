@@ -9,8 +9,23 @@ external data per Coding Standards Section 1.1.
 from __future__ import annotations
 
 import logging
+import re
+import uuid
+
+from email_validator import EmailNotValidError, validate_email
 
 logger = logging.getLogger(__name__)
+
+# ServiceNow incident number: INC followed by 7-10 digits
+_TICKET_PATTERN = re.compile(r"^INC\d{7,10}$")
+
+# Salesforce Account ID: starts with 001, 15 or 18 alphanumeric chars
+_SALESFORCE_ID_PATTERN = re.compile(r"^001[a-zA-Z0-9]{12}([a-zA-Z0-9]{3})?$")
+
+# PII redaction patterns
+_EMAIL_PATTERN = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
+_SSN_PATTERN = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
+_CREDIT_CARD_PATTERN = re.compile(r"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b")
 
 
 class ValidationError(Exception):
@@ -29,7 +44,11 @@ def validate_email_address(email: str) -> bool:
     Raises:
         ValidationError: When validation logic fails.
     """
-    raise NotImplementedError("Pending implementation")
+    try:
+        validate_email(email, check_deliverability=False)
+    except EmailNotValidError:
+        return False
+    return True
 
 
 def validate_ticket_number(ticket_number: str) -> bool:
@@ -44,7 +63,7 @@ def validate_ticket_number(ticket_number: str) -> bool:
     Raises:
         ValidationError: When validation logic fails.
     """
-    raise NotImplementedError("Pending implementation")
+    return bool(_TICKET_PATTERN.match(ticket_number))
 
 
 def validate_correlation_id(correlation_id: str) -> bool:
@@ -59,7 +78,11 @@ def validate_correlation_id(correlation_id: str) -> bool:
     Raises:
         ValidationError: When validation logic fails.
     """
-    raise NotImplementedError("Pending implementation")
+    try:
+        parsed = uuid.UUID(correlation_id, version=4)
+    except (ValueError, AttributeError):
+        return False
+    return str(parsed) == correlation_id
 
 
 def validate_vendor_id(vendor_id: str) -> bool:
@@ -74,7 +97,7 @@ def validate_vendor_id(vendor_id: str) -> bool:
     Raises:
         ValidationError: When validation logic fails.
     """
-    raise NotImplementedError("Pending implementation")
+    return bool(_SALESFORCE_ID_PATTERN.match(vendor_id))
 
 
 def sanitize_for_log(text: str) -> str:
@@ -92,4 +115,7 @@ def sanitize_for_log(text: str) -> str:
     Raises:
         ValidationError: When sanitization fails.
     """
-    raise NotImplementedError("Pending implementation")
+    sanitized = _EMAIL_PATTERN.sub("[EMAIL_REDACTED]", text)
+    sanitized = _SSN_PATTERN.sub("[SSN_REDACTED]", sanitized)
+    sanitized = _CREDIT_CARD_PATTERN.sub("[CC_REDACTED]", sanitized)
+    return sanitized

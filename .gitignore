@@ -11,6 +11,9 @@ wheels/
 
 # Environment variables (NEVER committed)
 .env
+.env.*
+!.env.copy
+
 
 # IDE
 .idea/
