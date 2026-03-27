@@ -1,0 +1,28 @@
+# Database configuration for VQMS
+# PostgreSQL (pgvector) and Redis connection settings
+
+postgresql:
+  host: ${VQMS_DB_HOST:localhost}
+  port: ${VQMS_DB_PORT:5432}
+  database: ${VQMS_DB_NAME:vqms}
+  user: ${VQMS_DB_USER:vqms}
+  min_connections: 5
+  max_connections: 20
+  schemas:
+    - intake
+    - workflow
+    - memory
+    - audit
+    - reporting
+
+redis:
+  host: ${VQMS_REDIS_HOST:localhost}
+  port: ${VQMS_REDIS_PORT:6379}
+  db: 0
+  key_families:
+    - idempotency
+    - thread
+    - ticket
+    - workflow
+    - vendor
+    - sla

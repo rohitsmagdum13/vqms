@@ -1,0 +1,98 @@
+# ===========================
+# Core Framework
+# ===========================
+fastapi
+uvicorn[standard]
+pydantic>=2.0
+pydantic-settings
+
+# ===========================
+# AI / LLM — Amazon Bedrock + LangChain/LangGraph
+# ===========================
+boto3
+botocore
+langchain>=0.3
+langchain-aws
+langchain-community
+langgraph>=0.2
+langsmith
+
+# ===========================
+# Database — PostgreSQL + pgvector
+# ===========================
+asyncpg
+psycopg2-binary
+pgvector
+sqlalchemy[asyncio]
+alembic
+
+# ===========================
+# Cache — Redis
+# ===========================
+redis[hiredis]
+
+# ===========================
+# API & Web — External Service Adapters
+# ===========================
+httpx
+aiohttp
+requests
+msal                          # Microsoft Graph API auth
+simple-salesforce             # Salesforce CRM adapter
+pysnow                        # ServiceNow ITSM adapter
+
+# ===========================
+# Email Parsing
+# ===========================
+python-multipart
+email-validator
+
+# ===========================
+# Observability & Logging
+# ===========================
+structlog
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-instrumentation-fastapi
+opentelemetry-exporter-otlp
+aws-xray-sdk
+
+# ===========================
+# Templating & Prompts
+# ===========================
+jinja2
+
+# ===========================
+# Security & Compliance
+# ===========================
+cryptography
+python-jose[cryptography]
+
+# ===========================
+# Utilities
+# ===========================
+python-dotenv
+pyyaml
+tenacity                      # Retry with exponential backoff
+python-dateutil
+orjson                        # Fast JSON serialization
+
+# ===========================
+# Testing
+# ===========================
+pytest
+pytest-asyncio
+pytest-cov
+pytest-mock
+moto[s3,sqs,events,stepfunctions]   # AWS service mocking
+ragas                         # RAG evaluation framework
+deepeval                      # LLM-as-a-judge evaluation
+
+# ===========================
+# Dev Tools
+# ===========================
+ruff
+mypy
+black
+isort
+pre-commit

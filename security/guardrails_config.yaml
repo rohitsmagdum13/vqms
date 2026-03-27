@@ -1,0 +1,19 @@
+# Guardrails configuration for VQMS
+# Defines safety filters, content moderation, and prompt injection defenses
+
+guardrails:
+  prompt_injection:
+    enabled: true
+    max_instruction_length: 4096
+  content_moderation:
+    enabled: true
+    blocked_categories:
+      - hate_speech
+      - violence
+      - self_harm
+  pii_detection:
+    enabled: true
+    provider: aws_comprehend
+    actions:
+      - redact_before_llm
+      - log_detection

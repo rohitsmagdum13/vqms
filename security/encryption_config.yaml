@@ -1,0 +1,17 @@
+# Encryption configuration for VQMS
+# Data at rest and in transit (Section 10)
+
+encryption:
+  at_rest:
+    algorithm: AES-256-GCM
+    key_management: aws_kms
+    kms_key_alias: alias/vqms-data-key
+  in_transit:
+    protocol: TLS
+    min_version: "1.2"
+  database:
+    column_encryption:
+      - table: intake.email_messages
+        columns: [sender_email, subject]
+      - table: memory.vendor_profile_cache
+        columns: [contact_email]

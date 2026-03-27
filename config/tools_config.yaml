@@ -1,0 +1,21 @@
+# Tool settings for VQMS
+# API endpoint configurations (secrets in env vars / Secrets Manager)
+
+tools:
+  microsoft_graph:
+    api_version: "v1.0"
+    scopes:
+      - "Mail.ReadWrite"
+      - "Mail.Send"
+
+  salesforce:
+    api_version: "v61.0"
+    timeout_ms: 10000
+
+  servicenow:
+    api_version: "v2"
+    timeout_ms: 10000
+
+  aws_comprehend:
+    region: "us-east-1"
+    language_code: "en"

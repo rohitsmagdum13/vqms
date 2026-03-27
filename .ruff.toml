@@ -1,0 +1,27 @@
+# Ruff linting configuration for VQMS
+target-version = "py312"
+line-length = 88
+
+[lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "A",    # flake8-builtins
+    "S",    # flake8-bandit
+    "T20",  # flake8-print (no print statements)
+    "RUF",  # ruff-specific rules
+]
+ignore = [
+    "S101",  # allow assert in tests
+]
+
+[lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "S106"]
+
+[lint.isort]
+known-first-party = ["src"]

@@ -1,0 +1,24 @@
+# Agent personas, goals, and backstories for VQMS
+# Referenced by src/agents/ modules
+
+agents:
+  email_analysis:
+    name: "Email Analysis Agent"
+    description: "Bedrock Claude agent for intent classification, entity extraction, urgency, sentiment, confidence scoring"
+    model: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    max_hops: 4
+    prompt_template: "prompts/email_analysis/v1.jinja"
+
+  communication_drafting:
+    name: "Communication Drafting Agent"
+    description: "Bedrock Claude agent for acknowledgment/resolution email generation"
+    model: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    max_hops: 4
+    prompt_template: "prompts/communication_drafting/v1.jinja"
+
+  orchestration:
+    name: "Workflow Orchestration Agent"
+    description: "LangGraph decision node combining analysis + vendor + ticket data for routing"
+    model: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    max_hops: 4
+    prompt_template: "prompts/orchestration/v1.jinja"

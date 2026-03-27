@@ -1,0 +1,18 @@
+# Access control configuration for VQMS
+# RBAC per tool and per agent (Section 10)
+
+roles:
+  system_admin:
+    agents: ["*"]
+    tools: ["*"]
+  operator:
+    agents: ["email_analysis", "communication_drafting", "orchestration"]
+    tools: ["email_fetch", "ticket_create", "ticket_update", "vendor_lookup"]
+  viewer:
+    agents: []
+    tools: ["ticket_read", "vendor_read"]
+
+policies:
+  - id: require_auth_for_tools
+    description: "All tool calls require authenticated context"
+    enforce: true

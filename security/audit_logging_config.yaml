@@ -1,0 +1,20 @@
+# Audit logging configuration for VQMS
+# Every side-effect writes to audit.action_log (Architecture Doc)
+
+audit:
+  enabled: true
+  log_group: /vqms/audit
+  retention_days: 365
+  fields:
+    - correlation_id
+    - agent_role
+    - tool
+    - action
+    - timestamp
+    - user_id_hash
+    - result_status
+    - cost
+  destinations:
+    - cloudwatch
+    - postgresql  # audit.action_log table
+    - s3  # vqms-audit-artifacts-prod bucket

@@ -1,0 +1,30 @@
+# Structured logging configuration for VQMS
+# JSON structured logging from day one (Section 9)
+
+logging:
+  format: json
+  level: INFO
+  fields:
+    - correlation_id
+    - agent_role
+    - tool
+    - latency_ms
+    - tokens_in
+    - tokens_out
+    - cost
+    - policy_decisions
+    - safety_flags
+  handlers:
+    console:
+      enabled: true
+      level: DEBUG
+    cloudwatch:
+      enabled: false
+      log_group: /vqms/application
+      retention_days: 90
+  pii_redaction: true
+  never_log:
+    - api_keys
+    - passwords
+    - tokens
+    - secrets

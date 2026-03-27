@@ -1,0 +1,24 @@
+# Production environment overrides for VQMS
+
+environment: production
+
+logging:
+  level: INFO
+  handlers:
+    console:
+      enabled: false
+    cloudwatch:
+      enabled: true
+      log_group: /vqms/application
+      retention_days: 365
+
+postgresql:
+  host: ${VQMS_DB_HOST}
+  port: ${VQMS_DB_PORT:5432}
+  database: ${VQMS_DB_NAME}
+  min_connections: 10
+  max_connections: 50
+
+redis:
+  host: ${VQMS_REDIS_HOST}
+  port: ${VQMS_REDIS_PORT:6379}
