@@ -24,3 +24,660 @@ Accounts & Finance
 TechNova Solutions Pvt. Ltd.
 Phone: +91 98765 43210
 Email: rajesh.mehta@technovasolutions.in
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Context
+The VQMS project needs real Salesforce records so the Vendor Resolution Service (Phase 6) can query Salesforce during development. The dummy dataset has 25 vendors, 50 contacts, and 25 contracts that map naturally to Salesforce standard objects. Loading this data into a free Salesforce Developer Org gives us a realistic test environment.
+
+What Goes Into Salesforce vs What Doesn't
+Excel SheetGoes Into Salesforce?Why / Where Insteadvendors (25 rows)YES -> Account objectCore vendor records that VQMS queries from Salesforcevendor_contacts (50 rows)YES -> Contact objectContact persons linked to vendor Accountscontracts (25 rows)YES -> Contract objectContract details linked to vendor Accountsraw_emailsNoVQMS PostgreSQL intake.email_messages tableattachmentsNoS3 bucket vqms-email-attachments-prodparsed_queriesNoVQMS PostgreSQL workflow.case_execution tableclassificationsNoVQMS internal AI outputticketsNoServiceNow incident tablesla_trackingNoVQMS PostgreSQL reporting.sla_metrics tableaudit_logsNoVQMS PostgreSQL audit.action_log tableOthersNoVQMS internal data
+
+Salesforce Object Names Reference
+What We Call ItSalesforce Standard Object NameAPI NameTab Name in SF UIVendor/CompanyAccountAccount"Accounts" tabVendor Contact PersonContactContact"Contacts" tabVendor ContractContractContract"Contracts" tab
+
+Why "Account" and not "Vendor"? Salesforce uses "Account" as the standard object for any company/organization. Vendors, customers, partners — all are stored as Account records. We use custom fields (like Vendor_Tier__c) to distinguish vendor-specific data.
+
+
+STEP 1: Set Up Salesforce Developer Org
+
+Skip this step if you already have a Developer Org.
+
+1.1 Sign Up
+
+Open browser -> go to https://developer.salesforce.com/signup
+Fill in the form:
+
+First Name: Your first name
+Last Name: Your last name
+Email: Your real email (verification link will be sent here)
+Role: Developer
+Company: Hexaware Technologies
+Country: India
+Postal Code: Your postal code
+Username: Must be in email format and globally unique across all Salesforce orgs
+
+Example: rohit.vqms.dev@hexaware.dev (doesn't need to be a real email)
+
+
+
+
+Check the "Master Subscription Agreement" checkbox
+Click Sign Me Up
+
+1.2 Activate Your Org
+
+Check your email inbox for "Verify your account" from Salesforce
+Click the verification link
+Set your password (must be 8+ chars, include a number and uppercase letter)
+You'll land on the Salesforce Home page
+
+1.3 Find Your Instance URL
+
+Look at the browser address bar — it will look like:
+
+   https://hexaware-dev-ed.develop.my.salesforce.com
+
+Save this URL — this is your SALESFORCE_INSTANCE_URL for the .env file
+
+1.4 Switch to Lightning Experience (if not already)
+
+If you see a classic blue header, click your name (top right) -> Switch to Lightning Experience
+Lightning has the modern UI with the left sidebar and tabs
+
+
+STEP 2: Create Custom Fields in Salesforce
+Salesforce comes with standard fields (Name, Email, Phone, etc.) but doesn't have VQMS-specific fields like Vendor_ID, Vendor_Tier, or SLA_Response_Hours. We need to create these as custom fields before importing data.
+
+Naming Rule: Every custom field you create in Salesforce automatically gets __c appended to its API name. So if you name a field "Vendor ID", its API name becomes Vendor_ID__c.
+
+2.1 How to Navigate to Custom Field Creation
+This is the same navigation for ALL three objects. Repeat for each:
+Step-by-step click path:
+
+1. Click the GEAR ICON (⚙️) in the top-right corner of any Salesforce page
+2. Click "Setup" from the dropdown menu
+   -> This opens the Setup page in a new tab
+
+3. In the left sidebar, find "QUICK FIND" search box (top of sidebar)
+4. Type "Object Manager" in the Quick Find box
+5. Click "Object Manager" from the results
+   -> You'll see a list of all Salesforce objects (Account, Case, Contact, Contract, etc.)
+
+6. Click on the OBJECT NAME you want to add fields to:
+   - Click "Account" for vendor fields
+   - Click "Contact" for contact fields
+   - Click "Contract" for contract fields
+
+7. In the left sidebar of the object page, click "Fields & Relationships"
+   -> You'll see all existing fields for that object
+
+8. Click the "New" button (top-right)
+   -> This starts the custom field creation wizard
+2.2 How the Field Creation Wizard Works
+The wizard has 4 pages for each field:
+PAGE 1: Choose the field type
+  -> Select: Text, Number, Picklist, Date, Currency, Checkbox, etc.
+  -> Click "Next"
+
+PAGE 2: Enter field details
+  -> Field Label: Human-readable name (e.g., "Vendor ID")
+  -> Length: For text fields (e.g., 10)
+  -> Description: Optional but helpful
+  -> Help Text: Optional
+  -> For Picklist: Enter each value on a new line
+  -> IMPORTANT CHECKBOXES:
+     ☑ "External ID" — check this for ID fields (Vendor_ID__c, Contact_ID__c, Contract_ID__c)
+     ☑ "Unique" — check this for ID fields to prevent duplicates
+  -> Click "Next"
+
+PAGE 3: Set field-level security
+  -> Leave defaults (visible to all profiles)
+  -> Click "Next"
+
+PAGE 4: Add to page layouts
+  -> Check "Account Layout" (or Contact Layout / Contract Layout)
+  -> Click "Save"
+2.3 Create Fields on the ACCOUNT Object
+Navigate: Setup -> Object Manager -> Account -> Fields & Relationships -> New
+Create these 8 fields in this exact order:
+
+Field 1: Vendor ID (THE MOST IMPORTANT FIELD — used for linking Contacts and Contracts)
+Wizard PageSettingValuePage 1 - Data TypeSelectTextPage 2 - Field LabelTypeVendor IDPage 2 - LengthType10Page 2 - DescriptionTypeVQMS vendor identifier (e.g., V-001). Maps to vendor_id in VQMS dataset.Page 2 - External IDCHECK ☑This allows Data Loader to match records by this fieldPage 2 - UniqueCHECK ☑Prevents duplicate vendor recordsPage 2 - Case SensitiveLeave uncheckedPage 3 - SecurityLeave defaultsVisible to all profilesPage 4 - LayoutCHECK ☑ Account LayoutClick Save
+
+API Name created: Vendor_ID__c
+
+
+Field 2: Vendor Tier
+Wizard PageSettingValuePage 1 - Data TypeSelectPicklistPage 2 - Field LabelTypeVendor TierPage 2 - ValuesSelect "Enter values, with each value separated by a new line"Type these 4 values (one per line):Line 1PLATINUMLine 2GOLDLine 3SILVERLine 4BRONZEPage 2 - Default ValueLeave blankPage 2 - DescriptionTypeVendor importance tier — PLATINUM (fastest SLA) to BRONZE (standard)Page 3 - SecurityLeave defaultsPage 4 - LayoutCHECK ☑ Account LayoutClick Save
+
+API Name created: Vendor_Tier__c
+
+
+Field 3: Category
+Wizard PageSettingValuePage 1 - Data TypeSelectPicklistPage 2 - Field LabelTypeCategoryPage 2 - ValuesEnter one per line:Line 1ConsultingLine 2FacilitiesLine 3IT ServicesLine 4LogisticsLine 5ManufacturingLine 6Office SuppliesLine 7Professional ServicesLine 8Raw MaterialsLine 9SecurityLine 10TelecomPage 2 - DescriptionTypeVendor business categoryPage 3/4Same as aboveClick Save
+
+API Name created: Category__c
+
+
+Field 4: Payment Terms
+Wizard PageSettingValuePage 1 - Data TypeSelectPicklistPage 2 - Field LabelTypePayment TermsPage 2 - ValuesEnter one per line:Line 1Net-15Line 2Net-30Line 3Net-45Line 4Net-60Page 3/4Same as aboveClick Save
+
+API Name created: Payment_Terms__c
+
+
+Field 5: SLA Response Hours
+Wizard PageSettingValuePage 1 - Data TypeSelectNumberPage 2 - Field LabelTypeSLA Response HoursPage 2 - LengthType3 (integer digits)Page 2 - Decimal PlacesType0Page 2 - DescriptionTypeMaximum hours to acknowledge a vendor query (per vendor tier SLA)Page 3/4Same as aboveClick Save
+
+API Name created: SLA_Response_Hours__c
+
+
+Field 6: SLA Resolution Days
+Wizard PageSettingValuePage 1 - Data TypeSelectNumberPage 2 - Field LabelTypeSLA Resolution DaysPage 2 - LengthType3Page 2 - Decimal PlacesType0Page 2 - DescriptionTypeMaximum days to resolve a vendor query (per vendor tier SLA)Page 3/4Same as aboveClick Save
+
+API Name created: SLA_Resolution_Days__c
+
+
+Field 7: Vendor Status
+Wizard PageSettingValuePage 1 - Data TypeSelectPicklistPage 2 - Field LabelTypeVendor StatusPage 2 - ValuesEnter one per line:Line 1ACTIVELine 2INACTIVELine 3SUSPENDEDPage 2 - DescriptionTypeCurrent vendor relationship statusPage 3/4Same as aboveClick Save
+
+API Name created: Vendor_Status__c
+
+
+Field 8: Onboarded Date
+Wizard PageSettingValuePage 1 - Data TypeSelectDatePage 2 - Field LabelTypeOnboarded DatePage 2 - DescriptionTypeDate when vendor was first onboarded into the systemPage 3/4Same as aboveClick Save
+
+API Name created: Onboarded_Date__c
+
+
+2.4 Create Fields on the CONTACT Object
+Navigate: Setup -> Object Manager -> Contact -> Fields & Relationships -> New
+Create these 3 fields:
+
+Field 1: Contact ID
+Wizard PageSettingValuePage 1 - Data TypeSelectTextPage 2 - Field LabelTypeContact IDPage 2 - LengthType10Page 2 - External IDCHECK ☑Page 2 - UniqueCHECK ☑Page 2 - DescriptionTypeVQMS contact identifier (e.g., VC-001)Page 3/4Same as aboveClick Save
+
+API Name created: Contact_ID__c
+
+
+Field 2: Contact Type
+Wizard PageSettingValuePage 1 - Data TypeSelectPicklistPage 2 - Field LabelTypeContact TypePage 2 - ValuesEnter one per line:Line 1PRIMARYLine 2SECONDARYPage 2 - DescriptionTypeWhether this is the primary or secondary contact for the vendorPage 3/4Same as aboveClick Save
+
+API Name created: Contact_Type__c
+
+
+Field 3: Is Active
+Wizard PageSettingValuePage 1 - Data TypeSelectCheckboxPage 2 - Field LabelTypeIs ActivePage 2 - Default ValueSelectCheckedPage 2 - DescriptionTypeWhether this contact is currently activePage 3/4Same as aboveClick Save
+
+API Name created: Is_Active__c
+
+
+2.5 Create Fields on the CONTRACT Object
+Navigate: Setup -> Object Manager -> Contract -> Fields & Relationships -> New
+Create these 7 fields:
+
+Field 1: Contract ID
+Wizard PageSettingValuePage 1 - Data TypeSelectTextPage 2 - Field LabelTypeContract IDPage 2 - LengthType20Page 2 - External IDCHECK ☑Page 2 - UniqueCHECK ☑Page 2 - DescriptionTypeVQMS contract identifier (e.g., CNT-V-001-2025)Page 3/4Same as aboveClick Save
+
+API Name created: Contract_ID__c
+
+
+Field 2: Contract Value
+Wizard PageSettingValuePage 1 - Data TypeSelectCurrencyPage 2 - Field LabelTypeContract ValuePage 2 - LengthType16Page 2 - Decimal PlacesType0Page 2 - DescriptionTypeTotal contract value in INRPage 3/4Same as aboveClick Save
+
+API Name created: Contract_Value__c
+
+
+Field 3: SLA Response Hours
+Wizard PageSettingValuePage 1 - Data TypeSelectNumberPage 2 - Field LabelTypeSLA Response HoursPage 2 - Length / Decimal3 / 0Page 3/4Same as aboveClick Save
+
+API Name created: SLA_Response_Hours__c
+
+
+Field 4: SLA Resolution Days
+Wizard PageSettingValuePage 1 - Data TypeSelectNumberPage 2 - Field LabelTypeSLA Resolution DaysPage 2 - Length / Decimal3 / 0Page 3/4Same as aboveClick Save
+
+API Name created: SLA_Resolution_Days__c
+
+
+Field 5: Late Penalty
+Wizard PageSettingValuePage 1 - Data TypeSelectTextPage 2 - Field LabelTypeLate PenaltyPage 2 - LengthType50Page 2 - DescriptionTypePenalty clause for late payments (e.g., "1.5% per month" or "None")Page 3/4Same as aboveClick Save
+
+API Name created: Late_Penalty__c
+
+
+Field 6: Review Frequency
+Wizard PageSettingValuePage 1 - Data TypeSelectPicklistPage 2 - Field LabelTypeReview FrequencyPage 2 - ValuesEnter one per line:Line 1QuarterlyLine 2AnnualLine 3Bi-annualPage 3/4Same as aboveClick Save
+
+API Name created: Review_Frequency__c
+
+
+Field 7: Payment Terms
+Wizard PageSettingValuePage 1 - Data TypeSelectPicklistPage 2 - Field LabelTypePayment TermsPage 2 - ValuesEnter one per line:Line 1Net-15Line 2Net-30Line 3Net-45Line 4Net-60Page 3/4Same as aboveClick Save
+
+API Name created: Payment_Terms__c
+
+
+2.6 Summary: All Custom Fields Created
+After completing Steps 2.3-2.5, you should have:
+ObjectCustom Fields CreatedTotalAccountVendor_ID__c, Vendor_Tier__c, Category__c, Payment_Terms__c, SLA_Response_Hours__c, SLA_Resolution_Days__c, Vendor_Status__c, Onboarded_Date__c8 fieldsContactContact_ID__c, Contact_Type__c, Is_Active__c3 fieldsContractContract_ID__c, Contract_Value__c, SLA_Response_Hours__c, SLA_Resolution_Days__c, Late_Penalty__c, Review_Frequency__c, Payment_Terms__c7 fields18 fields total
+How to verify: Go to Setup -> Object Manager -> [Object] -> Fields & Relationships. Your custom fields will have __c suffix and show under "Custom" type.
+
+STEP 3: Prepare CSV Files for Import
+The Excel data needs transformation before Salesforce can accept it. We'll write a Python script to do this automatically.
+3.1 What the Script Does (Transformations)
+TransformationExample BeforeExample AfterWhyStrip currency symbol₹5,000,0005000000Salesforce Number/Currency fields need plain numbersSplit full nameSneha SinghFirstName: Sneha, LastName: SinghSalesforce Contact has separate First/Last name fieldsParse locationPune, MaharashtraBillingCity: Pune, BillingState: MaharashtraSalesforce Account has separate address fieldsPrefix websiteacmeindustrial.comhttps://acmeindustrial.comSalesforce Website field expects full URLBoolean to true/falsetrue (string)trueSalesforce Checkbox expects lowercase true/falseDate format2022-02-042022-02-04Already correct — Salesforce accepts YYYY-MM-DDContract status mappingACTIVEDraftSF Contract must start as "Draft" (activated later via API or UI)
+3.2 Output Files
+The script creates 3 CSV files in a scripts/sf_import_data/ folder:
+FileRecordsUsed Forsf_accounts.csv25 rowsImport into Account objectsf_contacts.csv50 rowsImport into Contact object (linked to Accounts via Vendor_ID__c)sf_contracts.csv25 rowsImport into Contract object (linked to Accounts via Vendor_ID__c)
+3.3 CSV Column Headers (What Salesforce Expects)
+sf_accounts.csv columns:
+Vendor_ID__c, Name, Website, Vendor_Tier__c, Category__c, Payment_Terms__c,
+AnnualRevenue, SLA_Response_Hours__c, SLA_Resolution_Days__c,
+Vendor_Status__c, Onboarded_Date__c, BillingCity, BillingState, BillingCountry
+Sample row:
+V-001, Acme Industrial Supplies, https://acmeindustrial.com, GOLD, Raw Materials,
+Net-45, 5000000, 4, 2, ACTIVE, 2022-02-04, Pune, Maharashtra, India
+sf_contacts.csv columns:
+Contact_ID__c, Account.Vendor_ID__c, FirstName, LastName, Email, Phone,
+Title, Contact_Type__c, Is_Active__c
+Sample row:
+VC-001, V-001, Sneha, Singh, sneha.singh@acmeindustrial.com, +91-9436779490,
+Accounts Manager, PRIMARY, true
+
+Key: Account.Vendor_ID__c is how Salesforce links a Contact to its parent Account using an External ID. During import, Salesforce will look up the Account where Vendor_ID__c = V-001 and automatically link the Contact to it.
+
+sf_contracts.csv columns:
+Contract_ID__c, Account.Vendor_ID__c, StartDate, EndDate, Status,
+Payment_Terms__c, Contract_Value__c, SLA_Response_Hours__c,
+SLA_Resolution_Days__c, Late_Penalty__c, Review_Frequency__c, Description
+Sample row:
+CNT-V-001-2025, V-001, 2025-05-01, 2026-05-01, Draft, Net-45, 5000000,
+4, 2, 1.5% per month, Quarterly, Standard terms for Raw Materials category vendor
+3.4 Script to Build
+File to create: scripts/prepare_sf_import.py
+This script:
+
+Reads VQMS_Dummy_Dataset.xlsx using openpyxl
+Applies all transformations from 3.1
+Writes 3 CSV files to scripts/sf_import_data/
+Prints a summary of what was generated
+
+
+STEP 4: Import Data into Salesforce (Using Data Import Wizard)
+How to Open Data Import Wizard
+Click path:
+
+1. Click the GEAR ICON (⚙️) top-right corner
+2. Click "Setup"
+3. In the Quick Find search box (left sidebar), type: "Data Import Wizard"
+4. Click "Data Import Wizard" in the results
+5. Click the blue "Launch Wizard!" button
+You'll see a page with options to import different object types.
+
+4A: Import Accounts (Vendors) — DO THIS FIRST
+On the Data Import Wizard page:
+
+1. SECTION: "What kind of data are you importing?"
+   -> Click "Standard Objects" tab (should be selected by default)
+   -> Click "Accounts and Contacts"
+
+2. SECTION: "What do you want to do?"
+   -> Select: "Add new records"
+
+3. SECTION: "Where is your data?"
+   -> Select: "CSV"
+   -> Click "Choose File" button
+   -> Navigate to: scripts/sf_import_data/sf_accounts.csv
+   -> Select the file
+
+4. SECTION: "Match Account by"
+   -> Select: "Vendor ID" (your custom External ID field)
+   -> This tells Salesforce to use Vendor_ID__c to detect duplicates
+
+5. SECTION: "Match Contact by"
+   -> Select: "-- None --"
+   -> We're only importing Accounts right now, not Contacts
+
+6. Click "Next"
+Field Mapping Page:
+You'll see your CSV columns on the left and Salesforce fields on the right. Map each one:
+CSV Column               ->  Salesforce Field (click "Map" next to each)
+─────────────────────────────────────────────────────────────────────
+Vendor_ID__c             ->  Account: Vendor ID            (under Custom fields)
+Name                     ->  Account: Account Name         (under Standard fields)
+Website                  ->  Account: Website              (under Standard fields)
+Vendor_Tier__c           ->  Account: Vendor Tier          (under Custom fields)
+Category__c              ->  Account: Category             (under Custom fields)
+Payment_Terms__c         ->  Account: Payment Terms        (under Custom fields)
+AnnualRevenue            ->  Account: Annual Revenue       (under Standard fields)
+SLA_Response_Hours__c    ->  Account: SLA Response Hours   (under Custom fields)
+SLA_Resolution_Days__c   ->  Account: SLA Resolution Days  (under Custom fields)
+Vendor_Status__c         ->  Account: Vendor Status        (under Custom fields)
+Onboarded_Date__c        ->  Account: Onboarded Date       (under Custom fields)
+BillingCity              ->  Account: Billing City          (under Standard fields)
+BillingState             ->  Account: Billing State/Province(under Standard fields)
+BillingCountry           ->  Account: Billing Country      (under Standard fields)
+7. After mapping all fields, click "Next"
+8. Review page — verify the record count shows "25 new records"
+9. Click "Start Import"
+10. You'll see: "Your import has been submitted"
+    -> Check your email for "Data Import Wizard: Import completed" notification
+    -> Or click "OK" and check import status in Setup
+Verify: Go to the Accounts tab (top navigation bar) -> Recently Viewed dropdown -> Change to All Accounts. You should see 25 vendor accounts.
+
+4B: Import Contacts (Vendor Contacts) — DO THIS SECOND
+1. Go back to Data Import Wizard (Setup -> search "Data Import Wizard" -> Launch Wizard)
+
+2. SECTION: "What kind of data are you importing?"
+   -> Click "Standard Objects"
+   -> Click "Accounts and Contacts"
+
+3. SECTION: "What do you want to do?"
+   -> Select: "Add new records"
+
+4. SECTION: "Where is your data?"
+   -> Click "Choose File"
+   -> Navigate to: scripts/sf_import_data/sf_contacts.csv
+
+5. SECTION: "Match Account by"
+   -> Select: "Vendor ID"
+   -> This is how Salesforce knows which Account to link each Contact to
+
+6. SECTION: "Match Contact by"
+   -> Select: "Contact ID" (your custom External ID field)
+
+7. Click "Next"
+Field Mapping Page:
+CSV Column               ->  Salesforce Field
+─────────────────────────────────────────────────────────────────────
+Contact_ID__c            ->  Contact: Contact ID           (Custom)
+Account.Vendor_ID__c     ->  Account: Vendor ID            (Custom) — THIS LINKS THE CONTACT TO ITS ACCOUNT
+FirstName                ->  Contact: First Name            (Standard)
+LastName                 ->  Contact: Last Name             (Standard)
+Email                    ->  Contact: Email                 (Standard)
+Phone                    ->  Contact: Phone                 (Standard)
+Title                    ->  Contact: Title                 (Standard)
+Contact_Type__c          ->  Contact: Contact Type          (Custom)
+Is_Active__c             ->  Contact: Is Active             (Custom)
+8. Click "Next" -> Review -> "Start Import"
+9. Wait for confirmation email
+Verify: Click on any Account (e.g., "Acme Industrial Supplies") -> scroll down to Related section -> you should see Contacts (2) — Sneha Singh and Anita Kulkarni.
+
+4C: Import Contracts — DO THIS THIRD
+
+Important: The Data Import Wizard does NOT support the Contract object directly. You need to use Data Loader for Contracts.
+
+How to Download and Use Salesforce Data Loader
+1. Setup (gear icon -> Setup)
+2. Quick Find: type "Data Loader"
+3. Click "Data Loader"
+4. Click "Download Data Loader" (Windows version)
+5. Run the installer (.exe file)
+6. Open Data Loader from Start Menu -> "Salesforce" -> "Data Loader"
+Using Data Loader to Import Contracts
+1. Open Data Loader
+2. Click "Insert" (we're adding new records)
+3. Login:
+   - Username: your Salesforce username
+   - Password: your password + security token (concatenated, no space)
+     Example: if password is "MyPass123" and token is "abcXYZ"
+     Type: "MyPass123abcXYZ"
+   - Click "Log In"
+
+4. Select Object:
+   - Check "Show all Salesforce objects" checkbox
+   - Scroll down and select "Contract"
+   - Click "Next"
+
+5. Choose CSV file:
+   - Click "Browse" -> navigate to scripts/sf_import_data/sf_contracts.csv
+   - Click "Next"
+
+6. Field Mapping:
+   - Click "Create or Edit a Map"
+   - Click "Auto-Match Fields to Columns" (this maps fields with matching names)
+   - For any unmatched fields, drag from left column (CSV) to right column (SF field)
+   - CRITICAL: Map "Account.Vendor_ID__c" to "AccountId" using External ID lookup:
+     -> This requires the CSV to have the Account's Vendor_ID__c value
+     -> Data Loader will look up the Account and get its Salesforce ID automatically
+   - Click "OK" -> "Next"
+
+7. Choose output directory for success/error files
+   - Click "Browse" -> select scripts/sf_import_data/
+   - Click "Finish"
+   - Click "Yes" to start the import
+
+8. Results:
+   - "success.csv" — records that imported successfully
+   - "error.csv" — records that failed (check this for issues)
+
+Alternative for Contracts (no Data Loader needed): We can use the simple-salesforce Python library to insert Contracts programmatically. The Python script can handle the Account ID lookup automatically. This may be easier if Data Loader has issues.
+
+
+STEP 5: Verify All Data in Salesforce
+5.1 Visual Verification
+Check 1: Accounts
+  Navigation: Click "Accounts" tab in top nav bar
+  -> Switch list view from "Recently Viewed" to "All Accounts" (dropdown arrow)
+  -> You should see 25 Account records
+  -> Click on "Acme Industrial Supplies" -> verify:
+     - Vendor ID: V-001
+     - Vendor Tier: GOLD
+     - Category: Raw Materials
+     - Annual Revenue: ₹5,000,000 (or $5,000,000 depending on org currency)
+     - SLA Response Hours: 4
+     - Billing City: Pune
+     - Billing State: Maharashtra
+
+Check 2: Contacts
+  Navigation: Click "Contacts" tab in top nav bar
+  -> Switch to "All Contacts"
+  -> You should see 50 Contact records
+  -> Click on "Sneha Singh" -> verify:
+     - Account: Acme Industrial Supplies (linked!)
+     - Email: sneha.singh@acmeindustrial.com
+     - Phone: +91-9436779490
+     - Title: Accounts Manager
+     - Contact Type: PRIMARY
+     - Is Active: ✓ (checked)
+
+Check 3: Contracts
+  Navigation: Click "Contracts" tab in top nav bar
+  -> If "Contracts" tab is not visible:
+     Click "More" (≡) at the end of the nav tabs -> "Contracts"
+  -> OR: Click on an Account -> scroll to "Related" -> "Contracts"
+  -> You should see 25 Contract records
+  -> Verify one:
+     - Contract ID: CNT-V-001-2025
+     - Account: Acme Industrial Supplies
+     - Start Date: 5/1/2025
+     - End Date: 5/1/2026
+     - Contract Value: ₹5,000,000
+5.2 SOQL Query Verification (Developer Console)
+How to open Developer Console:
+
+1. Click the GEAR ICON (⚙️) top-right
+2. Click "Developer Console"
+   -> A new window/tab opens with the Developer Console
+
+3. In the Developer Console menu bar, click "Query Editor" tab at the bottom
+   -> You'll see a text area where you can type SOQL queries
+   -> Type a query -> click "Execute" button
+Run these 4 verification queries:
+sql-- Query 1: Count all vendor accounts (should return 25)
+SELECT COUNT()
+FROM Account
+WHERE Vendor_ID__c LIKE 'V-%'
+sql-- Query 2: List all vendors with details
+SELECT Vendor_ID__c, Name, Vendor_Tier__c, Category__c,
+       SLA_Response_Hours__c, SLA_Resolution_Days__c,
+       BillingCity, BillingState
+FROM Account
+WHERE Vendor_ID__c LIKE 'V-%'
+ORDER BY Vendor_ID__c
+sql-- Query 3: Count all contacts and verify linkage (should return 50)
+SELECT COUNT()
+FROM Contact
+WHERE Contact_ID__c LIKE 'VC-%'
+sql-- Query 4: Verify contacts are linked to correct accounts
+SELECT Contact_ID__c, FirstName, LastName, Email,
+       Account.Name, Account.Vendor_ID__c
+FROM Contact
+WHERE Contact_ID__c LIKE 'VC-%'
+ORDER BY Contact_ID__c
+sql-- Query 5: Verify contracts are linked to correct accounts
+SELECT Contract_ID__c, Account.Name, Account.Vendor_ID__c,
+       StartDate, Contract_Value__c
+FROM Contract
+WHERE Contract_ID__c LIKE 'CNT-%'
+ORDER BY Contract_ID__c
+```
+
+---
+
+## STEP 6: Get Salesforce Credentials for VQMS `.env`
+
+### 6.1 Get Your Security Token
+```
+1. Click your AVATAR/PROFILE ICON (top-right, circle with your initials)
+2. Click "Settings"
+3. In the left sidebar under "My Personal Information"
+4. Click "Reset My Security Token"
+5. Click "Reset Security Token" button
+6. Check your email — you'll receive the token
+7. SAVE THIS TOKEN — you'll need it for the .env file
+```
+
+### 6.2 Get Your Instance URL
+```
+Look at your browser address bar when logged into Salesforce.
+It will look like one of these:
+
+  https://hexaware-dev-ed.develop.my.salesforce.com    (newer orgs)
+  https://hexaware-dev-ed.my.salesforce.com             (older orgs)
+  https://na123.salesforce.com                           (classic format)
+
+Copy the full URL up to .com — this is your SALESFORCE_INSTANCE_URL
+6.3 Update .env File
+env# Salesforce CRM (Vendor Resolution)
+SALESFORCE_INSTANCE_URL=https://your-org-name.develop.my.salesforce.com
+SALESFORCE_USERNAME=rohit.vqms.dev@hexaware.dev
+SALESFORCE_PASSWORD=YourPasswordHere
+SALESFORCE_SECURITY_TOKEN=the-token-from-email
+SALESFORCE_CONSUMER_KEY=<leave empty for now — needed for OAuth, not basic auth>
+SALESFORCE_CONSUMER_SECRET=<leave empty for now>
+
+STEP 7: Test Connection from Python
+After everything is imported, verify VQMS can connect:
+python# Quick test script — run with: uv run python scripts/test_sf_connection.py
+
+from simple_salesforce import Salesforce
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+sf = Salesforce(
+    username=os.getenv("SALESFORCE_USERNAME"),
+    password=os.getenv("SALESFORCE_PASSWORD"),
+    security_token=os.getenv("SALESFORCE_SECURITY_TOKEN"),
+    domain="test"  # Use "test" for sandbox, remove for production/dev org
+)
+
+# Test 1: Query a vendor by ID
+result = sf.query(
+    "SELECT Vendor_ID__c, Name, Vendor_Tier__c "
+    "FROM Account "
+    "WHERE Vendor_ID__c = 'V-001'"
+)
+print("Vendor V-001:", result['records'][0]['Name'])
+# Expected: "Acme Industrial Supplies"
+
+# Test 2: Query contacts for a vendor
+result = sf.query(
+    "SELECT FirstName, LastName, Email "
+    "FROM Contact "
+    "WHERE Account.Vendor_ID__c = 'V-001'"
+)
+print(f"Contacts for V-001: {len(result['records'])} found")
+# Expected: 2 contacts (Sneha Singh, Anita Kulkarni)
+
+# Test 3: Count all vendors
+result = sf.query("SELECT COUNT() FROM Account WHERE Vendor_ID__c LIKE 'V-%'")
+print(f"Total vendors: {result['totalSize']}")
+# Expected: 25
+
+What We'll Build (Code)
+FilePurposescripts/prepare_sf_import.pyReads Excel, transforms data, outputs 3 CSVsscripts/sf_import_data/sf_accounts.csv25 Account records ready for importscripts/sf_import_data/sf_contacts.csv50 Contact records ready for importscripts/sf_import_data/sf_contracts.csv25 Contract records ready for importscripts/test_sf_connection.pyVerifies VQMS can query Salesforce after import
+
+Full Checklist
+
+ Salesforce Developer Org created and accessible
+ 8 custom fields created on Account object
+ 3 custom fields created on Contact object
+ 7 custom fields created on Contract object
+ Python script run to generate 3 CSV files
+ 25 Accounts imported via Data Import Wizard
+ 50 Contacts imported via Data Import Wizard (linked to Accounts)
+ 25 Contracts imported via Data Loader (linked to Accounts)
+ SOQL verification queries return correct counts (25/50/25)
+ .env updated with Salesforce credentials
+ Python test script connects and queries successfully
