@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>VQMS — Vendor Query Management System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#EEF2F9;--panel:#FFFFFF;--p2:#F4F7FC;--p3:#E8EEF8;
+  --bdr:#D6E0EF;--bdr2:#B8CCEB;
+  --blue:#2563EB;--b2:#1D4ED8;--bdim:rgba(37,99,235,.08);
+  --amber:#F59E0B;--rose:#EF4444;--green:#10B981;--purple:#7C3AED;
+  --text:#1E293B;--muted:#64748B;--sub:#CBD5E1;
+  --font:'Sora',sans-serif;--mono:'DM Mono',monospace;
+  --r:8px;--r2:12px;
+  --sh:0 1px 4px rgba(37,99,235,.07),0 1px 2px rgba(0,0,0,.04);
+  --sh2:0 4px 16px rgba(37,99,235,.1),0 2px 6px rgba(0,0,0,.06);
+  --sh3:0 12px 40px rgba(37,99,235,.13),0 4px 12px rgba(0,0,0,.08);
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);font-family:var(--font);color:var(--text)}
+button,input,select,textarea{font-family:var(--font)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pop{0%{transform:scale(.8);opacity:0}60%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(16,185,129,.4)}50%{opacity:.7;box-shadow:0 0 0 5px rgba(16,185,129,0)}}
+@keyframes tick{to{stroke-dashoffset:0}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:var(--sub);border-radius:4px}
+
+/* ─── SCREEN MANAGER ───────────────────────── */
+.screen{position:fixed;inset:0;display:none;z-index:5}
+.screen.on{display:flex}
+
+/* ─── SHARED ───────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);border:1px solid var(--bdr);background:var(--panel);color:var(--text);font-size:13px;font-weight:500;cursor:pointer;transition:all .18s;box-shadow:var(--sh);white-space:nowrap}
+.btn:hover{border-color:var(--blue);color:var(--blue);background:var(--bdim)}
+.btn.pri{background:linear-gradient(135deg,#3B82F6,#1D4ED8);color:#fff;border:none;font-weight:600;box-shadow:0 3px 10px rgba(37,99,235,.3)}
+.btn.pri:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(37,99,235,.4)}
+.btn.ghost{background:transparent;border:none;box-shadow:none;color:var(--muted);padding:6px 10px}
+.btn.ghost:hover{color:var(--blue);background:var(--bdim)}
+.btn.sm{padding:5px 12px;font-size:12px}
+.btn.danger{border-color:rgba(239,68,68,.3);color:var(--rose)}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:10px;letter-spacing:.04em;white-space:nowrap}
+.bb{background:var(--bdim);color:var(--blue);border:1px solid rgba(37,99,235,.2)}
+.bg{background:rgba(16,185,129,.08);color:#059669;border:1px solid rgba(16,185,129,.2)}
+.ba{background:rgba(245,158,11,.1);color:#B45309;border:1px solid rgba(245,158,11,.22)}
+.br{background:rgba(239,68,68,.08);color:var(--rose);border:1px solid rgba(239,68,68,.18)}
+.bp{background:rgba(124,58,237,.08);color:#6D28D9;border:1px solid rgba(124,58,237,.18)}
+.bm{background:var(--p2);color:var(--muted);border:1px solid var(--bdr)}
+.sdot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
+.card{background:var(--panel);border:1px solid var(--bdr);border-radius:var(--r2);box-shadow:var(--sh)}
+.sec-lbl{font-size:10px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:#94A3B8}
+.toggle{width:36px;height:20px;border-radius:10px;border:1.5px solid var(--bdr);background:var(--p2);position:relative;cursor:pointer;transition:all .2s;flex-shrink:0}
+.toggle.on{background:linear-gradient(90deg,#3B82F6,#1D4ED8);border-color:var(--blue)}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.toggle.on::after{transform:translateX(16px)}
+
+/* ═══════════════════════════════════
+   LOGIN
+═══════════════════════════════════ */
+#sLogin{background:var(--bg);background-image:radial-gradient(ellipse at 20% 50%,rgba(37,99,235,.07),transparent 55%),radial-gradient(ellipse at 80% 20%,rgba(124,58,237,.05),transparent 55%);align-items:center;justify-content:center}
+.lw{width:420px;animation:fadeUp .45s ease}
+.l-top{text-align:center;margin-bottom:24px}
+.l-logo{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#3B82F6,#1D4ED8);display:flex;align-items:center;justify-content:center;margin:0 auto 13px;box-shadow:0 6px 20px rgba(37,99,235,.3)}
+.l-logo svg{width:26px;height:26px}
+.l-brand{font-size:22px;font-weight:700;color:var(--text)}
+.l-tag{font-size:11.5px;color:var(--muted);margin-top:2px;font-family:var(--mono)}
+.l-card{background:var(--panel);border:1px solid var(--bdr);border-radius:18px;padding:32px;box-shadow:var(--sh3);position:relative;overflow:hidden}
+.l-card::before{content:'';position:absolute;top:-50px;right:-50px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(37,99,235,.05),transparent 70%)}
+.l-h{font-size:18px;font-weight:600;color:var(--text);margin-bottom:4px}
+.l-s{font-size:12.5px;color:var(--muted);margin-bottom:22px}
+.role-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:22px;background:var(--p2);border-radius:10px;padding:4px;border:1px solid var(--bdr)}
+.rt{padding:10px 8px;border-radius:7px;border:none;background:transparent;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .18s;display:flex;flex-direction:column;align-items:center;gap:5px}
+.rt.on{background:var(--panel);color:var(--blue);box-shadow:var(--sh);border:1px solid var(--bdr)}
+.rt svg{width:18px;height:18px}
+.rt-lbl{font-size:12px;font-weight:600}
+.rt-sub{font-size:9px;color:var(--muted);font-family:var(--mono)}
+.ff{margin-bottom:14px}
+.ff label{display:block;font-size:10px;font-family:var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.ff input{width:100%;background:var(--p2);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 14px;font-size:13px;color:var(--text);outline:none;transition:all .15s}
+.ff input:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--bdim);background:#fff}
+.l-btn{width:100%;padding:12px;border-radius:var(--r);border:none;background:linear-gradient(135deg,#3B82F6,#1D4ED8);color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:all .18s;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:8px}
+.l-btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(37,99,235,.35)}
+.l-hint{font-size:11px;text-align:center;margin-top:14px;color:var(--muted);font-family:var(--mono)}
+.l-hint strong{color:var(--blue)}
+.l-loading{position:absolute;inset:0;background:rgba(255,255,255,.92);display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;border-radius:18px;z-index:20}
+.l-loading.on{display:flex}
+.spinner{width:28px;height:28px;border:2.5px solid var(--bdr);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+.l-ltxt{font-size:11.5px;color:var(--muted);font-family:var(--mono)}
+
+/* ═══════════════════════════════════
+   APP SHELL
+═══════════════════════════════════ */
+#sApp{flex-direction:column}
+.ag{display:grid;grid-template-columns:240px 1fr;grid-template-rows:58px 1fr;height:100vh;overflow:hidden}
+
+/* SIDEBAR */
+.sb{grid-row:1/3;background:var(--panel);border-right:1px solid var(--bdr);display:flex;flex-direction:column}
+.sb-logo{padding:15px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--bdr)}
+.sb-mk{width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,#3B82F6,#1D4ED8);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(37,99,235,.3);flex-shrink:0}
+.sb-mk svg{width:16px;height:16px}
+.sb-brand{font-size:14px;font-weight:700;color:var(--text)}
+.sb-ver{font-size:9px;color:var(--muted);font-family:var(--mono);margin-top:1px}
+.rb{margin:10px 10px 0;padding:7px 10px;border-radius:var(--r);display:flex;align-items:center;gap:7px;font-size:10px;font-family:var(--mono)}
+.rb-v{background:var(--bdim);border:1px solid rgba(37,99,235,.2);color:var(--blue)}
+.rb-a{background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.2);color:#6D28D9}
+.rbdot{width:6px;height:6px;border-radius:50%}
+.rbd-v{background:var(--blue)}
+.rbd-a{background:var(--purple)}
+.nav{flex:1;padding:12px 10px;display:flex;flex-direction:column;gap:1px;overflow-y:auto;scrollbar-width:none}
+.nav-s{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#94A3B8;padding:10px 11px 5px;font-family:var(--mono)}
+.ni{display:flex;align-items:center;gap:10px;padding:8px 11px;border-radius:var(--r);cursor:pointer;font-size:12.5px;color:var(--muted);transition:all .15s;border:1px solid transparent;position:relative;user-select:none}
+.ni:hover{background:var(--p2);color:var(--text)}
+.ni.on{background:var(--bdim);color:var(--blue);border-color:rgba(37,99,235,.2)}
+.ni.on::after{content:'';position:absolute;left:0;top:20%;height:60%;width:2.5px;background:var(--blue);border-radius:0 2px 2px 0}
+.ni-ico{width:14px;height:14px;flex-shrink:0}
+.nbadge{margin-left:auto;font-size:9px;font-family:var(--mono);padding:1px 6px;border-radius:8px}
+.nb-b{background:var(--bdim);color:var(--blue);border:1px solid rgba(37,99,235,.2)}
+.nb-r{background:rgba(239,68,68,.1);color:var(--rose);border:1px solid rgba(239,68,68,.18)}
+.sb-foot{padding:12px 13px;border-top:1px solid var(--bdr);display:flex;align-items:center;gap:9px}
+.av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.av-v{background:linear-gradient(135deg,#3B82F6,#1D4ED8)}
+.av-a{background:linear-gradient(135deg,#7C3AED,#4F46E5)}
+.sb-uname{font-size:12px;font-weight:500;color:var(--text)}
+.sb-role{font-size:9.5px;color:var(--muted);font-family:var(--mono);margin-top:1px}
+.odot{width:7px;height:7px;border-radius:50%;background:var(--green);margin-left:auto;animation:pulse 2s infinite}
+.lo-btn{background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;padding:2px 5px;font-family:var(--mono)}
+.lo-btn:hover{color:var(--rose)}
+
+/* TOPBAR */
+.tb{grid-column:2;background:var(--panel);border-bottom:1px solid var(--bdr);display:flex;align-items:center;padding:0 22px;gap:12px}
+.tb-ttl{font-size:14px;font-weight:600;color:var(--text)}
+.tb-crumb{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:1px}
+.tb-div{width:1px;height:24px;background:var(--bdr)}
+.tb-srch{position:relative;flex:1;max-width:280px}
+.tb-srch input{width:100%;background:var(--p2);border:1px solid var(--bdr);border-radius:var(--r);padding:7px 12px 7px 30px;font-size:12px;color:var(--text);outline:none;transition:all .15s}
+.tb-srch input:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--bdim)}
+.tb-srch svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:12px;height:12px;opacity:.35}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+/* Step trail shown during wizard */
+.st{display:flex;align-items:center;gap:5px;font-size:10px;font-family:var(--mono)}
+.sc{padding:3px 9px;border-radius:10px;background:var(--p2);border:1px solid var(--bdr);color:var(--muted)}
+.sc.done{color:#059669;background:rgba(16,185,129,.07);border-color:rgba(16,185,129,.2)}
+.sc.curr{color:var(--blue);background:var(--bdim);border-color:rgba(37,99,235,.2);font-weight:600}
+.tb-bell{width:32px;height:32px;border-radius:var(--r);background:var(--p2);border:1px solid var(--bdr);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;transition:all .15s}
+.tb-bell:hover{border-color:var(--blue)}
+.tb-bell svg{width:13px;height:13px;opacity:.55}
+.npip{position:absolute;top:6px;right:6px;width:6px;height:6px;background:var(--rose);border-radius:50%;border:2px solid var(--panel)}
+.tb-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;cursor:pointer}
+
+/* MAIN */
+.main{grid-column:2;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:15px;scrollbar-width:thin;scrollbar-color:var(--sub) transparent}
+.pane{display:none;flex-direction:column;gap:15px}
+.pane.on{display:flex;animation:fadeUp .3s ease}
+
+/* ═══════════════════════════════════
+   PORTAL TAB
+═══════════════════════════════════ */
+.hero{background:linear-gradient(135deg,#EFF6FF,#F0ECFF);border:1px solid var(--bdr);border-radius:16px;padding:22px 26px;display:flex;align-items:center;gap:18px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;right:-50px;top:-50px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(37,99,235,.06),transparent 70%)}
+.hero-ico{width:52px;height:52px;border-radius:13px;background:linear-gradient(135deg,#3B82F6,#1D4ED8);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 5px 18px rgba(37,99,235,.25)}
+.hero-ico svg{width:25px;height:25px}
+.hero-ttl{font-size:18px;font-weight:700;color:var(--text)}
+.hero-sub{font-size:12.5px;color:var(--muted);margin-top:4px}
+.hero-actions{margin-left:auto;display:flex;gap:10px;flex-shrink:0}
+.kpi3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.kpi{background:var(--panel);border:1px solid var(--bdr);border-radius:var(--r2);padding:15px 16px;box-shadow:var(--sh);cursor:pointer;transition:all .18s;position:relative;overflow:hidden}
+.kpi:hover{transform:translateY(-2px);box-shadow:var(--sh2);border-color:var(--blue)}
+.kpi-accent{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:var(--r2) 0 0 var(--r2)}
+.kpi-lbl{font-size:9.5px;font-family:var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.kpi-val{font-size:26px;font-weight:700;font-family:var(--mono);color:var(--text)}
+.kpi-r{display:flex;align-items:center;justify-content:space-between;margin-top:7px}
+.kpi-t{font-size:10px;font-family:var(--mono)}.tg{color:#059669}.tr{color:var(--rose)}.ta{color:#B45309}
+.kpi-s{font-size:10px;color:var(--muted)}
+.spark{display:flex;align-items:flex-end;gap:2px;height:20px;margin-top:8px}
+.sp{border-radius:2px;flex:1}
+.qa{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.qa-c{background:var(--panel);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px;cursor:pointer;transition:all .18s;text-align:center;box-shadow:var(--sh)}
+.qa-c:hover{border-color:var(--blue);transform:translateY(-2px);box-shadow:var(--sh2)}
+.qa-ico{font-size:24px;width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 9px}
+.qa-lbl{font-size:12px;font-weight:600;color:var(--text)}
+.qa-s{font-size:10px;color:var(--muted);margin-top:3px}
+.mq{display:flex;align-items:center;gap:11px;padding:10px 14px;background:var(--panel);border:1px solid var(--bdr);border-radius:var(--r);box-shadow:var(--sh);cursor:pointer;transition:all .15s}
+.mq:hover{border-color:var(--blue);background:var(--bdim)}
+.mq-id{font-family:var(--mono);font-size:9.5px;color:var(--muted);min-width:90px}
+.mq-s{font-size:12px;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mq-t{font-size:10px;font-family:var(--mono);color:var(--muted)}
+
+/* ═══════════════════════════════════
+   WIZARD TAB
+═══════════════════════════════════ */
+.wiz-prog{background:var(--panel);border:1px solid var(--bdr);border-radius:var(--r2);padding:18px 22px;box-shadow:var(--sh)}
+.wiz-steps{display:flex;align-items:center}
+.ws{display:flex;align-items:center;flex:1;gap:8px}
+.ws:last-child{flex:0}
+.ws-c{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:var(--mono);flex-shrink:0;transition:all .3s;border:2px solid var(--bdr);background:var(--p2);color:var(--muted)}
+.ws-c.done{background:var(--green);border-color:var(--green);color:#fff}
+.ws-c.curr{background:var(--blue);border-color:var(--blue);color:#fff;box-shadow:0 0 0 4px rgba(37,99,235,.18)}
+.ws-i{display:flex;flex-direction:column}
+.ws-n{font-size:9px;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.ws-l{font-size:11px;font-weight:600;color:var(--text)}
+.ws-l.dim{color:var(--muted);font-weight:400}
+.ws-line{flex:1;height:2px;background:var(--bdr);margin:0 10px;border-radius:2px;overflow:hidden}
+.ws-line.done{background:var(--green)}
+.ws-line.prog{background:linear-gradient(90deg,var(--green),var(--blue))}
+.wiz-body{background:var(--panel);border:1px solid var(--bdr);border-radius:var(--r2);padding:24px;box-shadow:var(--sh);animation:fadeUp .3s ease}
+.wiz-ttl{font-size:16px;font-weight:600;color:var(--text);margin-bottom:4px}
+.wiz-sub{font-size:12.5px;color:var(--muted);margin-bottom:20px}
+/* Step 1 */
+.ty-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.ty{padding:16px;border:2px solid var(--bdr);border-radius:var(--r2);cursor:pointer;transition:all .18s;background:var(--p2);text-align:center}
+.ty:hover{border-color:var(--blue);background:var(--bdim);transform:translateY(-1px)}
+.ty.on{border-color:var(--blue);background:var(--bdim);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.ty-ico{font-size:26px;margin-bottom:8px}
+.ty-lbl{font-size:12.5px;font-weight:600;color:var(--text)}
+.ty-sub{font-size:10.5px;color:var(--muted);margin-top:3px}
+/* Step 2 */
+.fg2{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.fg2 label{font-size:10px;font-family:var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.fg2 input,.fg2 select,.fg2 textarea{background:var(--p2);border:1px solid var(--bdr);border-radius:var(--r);padding:9px 13px;font-size:13px;color:var(--text);outline:none;transition:all .15s;resize:none;width:100%}
+.fg2 input:focus,.fg2 select:focus,.fg2 textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--bdim);background:#fff}
+.fg2-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.cc{font-size:9.5px;font-family:var(--mono);color:var(--muted);text-align:right;margin-top:3px}
+.pri-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.po{padding:7px 14px;border-radius:20px;border:1.5px solid var(--bdr);background:var(--p2);font-size:11.5px;font-weight:500;cursor:pointer;transition:all .15s}
+.po:hover{border-color:var(--blue)}
+.pc{border-color:var(--rose)!important;background:rgba(239,68,68,.07)!important;color:var(--rose)!important}
+.ph{border-color:var(--amber)!important;background:rgba(245,158,11,.07)!important;color:#B45309!important}
+.pm{border-color:var(--blue)!important;background:var(--bdim)!important;color:var(--blue)!important}
+.pl{border-color:var(--green)!important;background:rgba(16,185,129,.07)!important;color:#059669!important}
+/* Step 3 */
+.rv-card{background:var(--p2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px;margin-bottom:12px}
+.rv-row{display:flex;align-items:flex-start;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bdr);font-size:12.5px}
+.rv-row:last-child{border-bottom:none}
+.rv-k{color:var(--muted);font-family:var(--mono);font-size:10px;padding-top:2px;min-width:110px}
+.rv-v{color:var(--text);font-weight:500;text-align:right}
+.sla-est{background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:var(--r);padding:13px 16px;display:flex;align-items:center;gap:12px}
+/* Wiz footer */
+.wiz-ft{display:flex;align-items:center;justify-content:space-between;padding-top:18px;border-top:1px solid var(--bdr);margin-top:6px}
+/* Submitting */
+.sub-anim{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:44px;gap:16px;min-height:260px}
+.sub-ring{width:60px;height:60px;border:3px solid var(--bdr);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+/* Success */
+.succ{display:flex;flex-direction:column;align-items:center;padding:36px 20px;gap:14px;animation:fadeUp .5s ease}
+.succ-ck{width:72px;height:72px;border-radius:50%;background:rgba(16,185,129,.1);border:2px solid rgba(16,185,129,.3);display:flex;align-items:center;justify-content:center;animation:pop .5s ease}
+.succ-ttl{font-size:18px;font-weight:700;color:var(--text);text-align:center}
+.succ-sub{font-size:12.5px;color:var(--muted);text-align:center;max-width:380px;line-height:1.65}
+.succ-id{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--blue);background:var(--bdim);border:1px solid rgba(37,99,235,.2);padding:7px 18px;border-radius:var(--r)}
+.track-box{background:var(--p2);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px 18px;width:100%;max-width:360px}
+.tr-r{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:12px;border-bottom:1px solid var(--bdr)}
+.tr-r:last-child{border-bottom:none}
+.tr-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.tr-lbl{flex:1;color:var(--text);font-weight:500}
+.tr-ts{font-size:10px;font-family:var(--mono);color:var(--muted)}
+.succ-acts{display:flex;gap:10px;margin-top:6px}
+
+/* ═══════════════════════════════════
+   QUERIES TAB
+═══════════════════════════════════ */
+.q-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fsel{background:var(--panel);border:1px solid var(--bdr);border-radius:var(--r);padding:7px 11px;font-size:12px;color:var(--text);outline:none;cursor:pointer;transition:all .15s;box-shadow:var(--sh)}
+.fsel:focus{border-color:var(--blue)}
+.q5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.qs{background:var(--panel);border:1px solid var(--bdr);border-radius:var(--r);padding:12px 14px;text-align:center;box-shadow:var(--sh)}
+.qs-n{font-size:20px;font-weight:700;font-family:var(--mono);margin-bottom:3px}
+.qs-l{font-size:9.5px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em}
+.qt-wrap{border-radius:var(--r2);border:1px solid var(--bdr);overflow:hidden;box-shadow:var(--sh)}
+table.qt{width:100%;border-collapse:collapse}
+table.qt thead tr{background:var(--p2)}
+table.qt thead th{padding:10px 14px;text-align:left;font-size:9.5px;font-family:var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:500;border-bottom:2px solid var(--bdr)}
+table.qt tbody tr.qr{background:#fff;border-bottom:1px solid var(--bdr);cursor:pointer;transition:background .15s}
+table.qt tbody tr.qr:hover{background:rgba(37,99,235,.03)}
+table.qt tbody tr.qr.sel{background:var(--bdim)}
+table.qt td{padding:10px 14px;vertical-align:middle;font-size:12px}
+.td-id{font-family:var(--mono);font-size:9.5px;color:var(--muted)}
+.td-s{font-weight:500;max-width:210px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.td-a{font-size:10.5px;color:var(--muted);font-family:var(--mono)}
+.sla-ok{color:#059669;font-family:var(--mono);font-size:10px;font-weight:600}
+.sla-warn{color:#B45309;font-family:var(--mono);font-size:10px;font-weight:600}
+.sla-brch{color:var(--rose);font-family:var(--mono);font-size:10px;font-weight:600}
+/* Inline expand */
+.exp-row{background:var(--bdim)}
+.exp-row td{padding:0}
+.exp-inner{padding:14px 20px;display:grid;grid-template-columns:1fr 1fr;gap:16px;animation:fadeIn .2s ease}
+.exp-ttl{font-size:9.5px;font-family:var(--mono);letter-spacing:.07em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px}
+.tl-m{display:flex;flex-direction:column;gap:5px}
+.tlm-i{display:flex;gap:8px;align-items:flex-start;font-size:11.5px}
+.tlm-d{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.tlm-ts{font-size:9px;font-family:var(--mono);color:var(--muted);margin-top:2px}
+.ai-box{background:#fff;border:1px solid rgba(37,99,235,.18);border-radius:var(--r);padding:11px 13px;font-size:11.5px;line-height:1.65;color:var(--text)}
+.ai-lbl{display:flex;align-items:center;gap:5px;font-size:9.5px;font-family:var(--mono);color:#059669;margin-bottom:6px;font-weight:600}
+
+/* ═══════════════════════════════════
+   DETAIL PANEL
+═══════════════════════════════════ */
+.dp{position:fixed;right:0;top:0;bottom:0;width:440px;background:var(--panel);border-left:1px solid var(--bdr);display:flex;flex-direction:column;z-index:80;transform:translateX(100%);transition:transform .32s cubic-bezier(.4,0,.2,1);box-shadow:-6px 0 30px rgba(37,99,235,.1)}
+.dp.on{transform:translateX(0)}
+.dp-hd{padding:16px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:flex-start;gap:12px;background:linear-gradient(135deg,rgba(37,99,235,.04),rgba(124,58,237,.02))}
+.dp-close{margin-left:auto;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;transition:color .15s;line-height:1}
+.dp-close:hover{color:var(--rose)}
+.dp-qid{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.dp-ttl{font-size:14px;font-weight:600;color:var(--text);margin-top:2px;line-height:1.35}
+.dp-body{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px;scrollbar-width:thin;scrollbar-color:var(--sub) transparent}
+.dp-sec{font-size:9.5px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px}
+.dp-mg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dp-mi{background:var(--p2);border-radius:var(--r);padding:8px 10px;border:1px solid var(--bdr)}
+.dp-mk{font-size:9px;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.dp-mv{font-size:12.5px;font-weight:600;color:var(--text);margin-top:2px}
+.dp-tl{display:flex;flex-direction:column}
+.dp-ti{display:flex;gap:12px;position:relative;padding-bottom:14px}
+.dp-ti:last-child{padding-bottom:0}
+.dp-td{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:3px;z-index:1;position:relative}
+.dp-tl-ln{position:absolute;left:4px;top:12px;bottom:0;width:1px;background:var(--bdr)}
+.dp-ti:last-child .dp-tl-ln{display:none}
+.dp-tt{font-size:11.5px;color:var(--text);line-height:1.4}
+.dp-ts{font-size:9px;font-family:var(--mono);color:var(--muted);margin-top:2px}
+.dp-chat{display:flex;flex-direction:column;gap:8px}
+.cm{padding:9px 12px;border-radius:var(--r);font-size:12px;line-height:1.55}
+.cm-you{background:var(--bdim);border:1px solid rgba(37,99,235,.18);color:var(--text)}
+.cm-us{background:var(--p2);border:1px solid var(--bdr);color:var(--text)}
+.cm-ai{background:linear-gradient(135deg,rgba(16,185,129,.07),rgba(37,99,235,.05));border:1px solid rgba(16,185,129,.18);color:var(--text)}
+.cm-meta{font-size:9px;font-family:var(--mono);color:var(--muted);margin-top:3px}
+.ai-head{display:flex;align-items:center;gap:5px;font-size:9.5px;font-family:var(--mono);color:#059669;margin-bottom:5px;font-weight:600}
+.dp-ft{padding:12px 16px;border-top:1px solid var(--bdr);display:flex;gap:8px;background:var(--p2)}
+.dp-ri{flex:1;background:#fff;border:1px solid var(--bdr);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--text);outline:none;transition:border-color .15s}
+.dp-ri:focus{border-color:var(--blue)}
+
+/* ═══════════════════════════════════
+   KB TAB
+═══════════════════════════════════ */
+.kb-hero{background:linear-gradient(135deg,rgba(37,99,235,.04),rgba(124,58,237,.04));border:1px solid var(--bdr);border-radius:var(--r2);padding:16px 20px;display:flex;align-items:center;gap:14px}
+.kb-srch{position:relative;margin-bottom:14px}
+.kb-srch input{width:100%;background:#fff;border:1.5px solid var(--bdr);border-radius:var(--r2);padding:12px 16px 12px 44px;font-size:14px;color:var(--text);outline:none;transition:all .15s;box-shadow:var(--sh)}
+.kb-srch input:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--bdim)}
+.kb-srch svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:16px;height:16px;opacity:.4}
+.kb-cats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.kbc{background:var(--panel);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px;cursor:pointer;transition:all .18s;text-align:center;box-shadow:var(--sh)}
+.kbc:hover{border-color:var(--blue);transform:translateY(-1px);box-shadow:var(--sh2)}
+.kbc-ico{font-size:24px;margin-bottom:8px}
+.kbc-n{font-size:12.5px;font-weight:600;color:var(--text)}
+.kbc-c{font-size:10px;font-family:var(--mono);color:var(--muted);margin-top:2px}
+.kb-art{background:var(--panel);border:1px solid var(--bdr);border-radius:var(--r);padding:13px 15px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:12px;box-shadow:var(--sh)}
+.kb-art:hover{border-color:var(--blue);transform:translateX(2px);box-shadow:var(--sh2)}
+.kb-ai{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px}
+.kb-at{font-size:12.5px;font-weight:600;color:var(--text)}
+.kb-am{font-size:10px;font-family:var(--mono);color:var(--muted);margin-top:3px}
+.kb-tags{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.tag{font-size:9px;font-family:var(--mono);background:var(--p2);border:1px solid var(--bdr);padding:1px 6px;border-radius:4px;color:var(--muted)}
+.kb-match{display:flex;align-items:center;gap:6px;margin-top:5px}
+.mb{flex:1;max-width:60px;height:4px;border-radius:2px;background:var(--bdr);overflow:hidden}
+.mf{height:100%;border-radius:2px;background:linear-gradient(90deg,#10B981,#3B82F6)}
+
+/* ═══════════════════════════════════
+   PREFS TAB
+═══════════════════════════════════ */
+.pref-g{display:grid;grid-template-columns:200px 1fr;gap:14px}
+.pref-nav{background:var(--panel);border:1px solid var(--bdr);border-radius:var(--r2);padding:10px;display:flex;flex-direction:column;gap:2px;height:fit-content;box-shadow:var(--sh)}
+.pn{padding:8px 11px;border-radius:var(--r);cursor:pointer;font-size:12.5px;color:var(--muted);transition:all .15s;border:1px solid transparent}
+.pn:hover{background:var(--p2);color:var(--text)}
+.pn.on{background:var(--bdim);color:var(--blue);border-color:rgba(37,99,235,.2);font-weight:500}
+.pref-panel{background:var(--panel);border:1px solid var(--bdr);border-radius:var(--r2);padding:20px;box-shadow:var(--sh)}
+.pref-r{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--bdr)}
+.pref-r:last-child{border-bottom:none}
+.pr-l{font-size:13px;font-weight:500;color:var(--text)}
+.pr-d{font-size:11px;color:var(--muted);margin-top:2px}
+.prof-box{background:var(--p2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px;display:flex;align-items:center;gap:14px;margin-bottom:4px}
+.prof-av{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#1D4ED8);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0}
+.prof-n{font-size:14px;font-weight:600;color:var(--text)}
+.prof-e{font-size:11px;font-family:var(--mono);color:var(--muted);margin-top:2px}
+.prof-c{font-size:10.5px;color:var(--muted);margin-top:5px;display:flex;align-items:center;gap:5px}
+
+/* TOAST */
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--text);color:#fff;padding:10px 18px;border-radius:var(--r);font-size:12.5px;font-weight:500;z-index:999;opacity:0;transition:all .3s;display:flex;align-items:center;gap:7px;white-space:nowrap;pointer-events:none}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.succ{background:#059669}
+.toast.info{background:var(--blue)}
+</style>
+</head>
+<body>
+
+<!-- ═══ LOGIN ═══════════════════════════════════ -->
+<div class="screen on" id="sLogin">
+  <div class="lw">
+    <div class="l-top">
+      <div class="l-logo">
+        <svg viewBox="0 0 26 26" fill="none">
+          <rect x="3" y="5" width="20" height="3" rx="1.5" fill="#fff"/>
+          <rect x="3" y="11.5" width="13" height="3" rx="1.5" fill="#BFDBFE"/>
+          <rect x="3" y="18" width="16" height="3" rx="1.5" fill="#93C5FD"/>
+          <circle cx="20" cy="19.5" r="4" fill="#fff"/>
+        </svg>
+      </div>
+      <div class="l-brand">VQMS</div>
+      <div class="l-tag">Vendor Query Management · Powered by Bedrock</div>
+    </div>
+    <div class="l-card">
+      <div class="l-h">Sign in to your workspace</div>
+      <div class="l-s">Select your role and enter your credentials to continue.</div>
+      <div class="role-tabs">
+        <button class="rt" id="rtAdmin" onclick="setRole('admin')">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="7" r="3.5"/><path d="M3 17c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5" stroke-linecap="round"/></svg>
+          <div class="rt-lbl">Admin</div>
+          <div class="rt-sub">admin@vqms.internal</div>
+        </button>
+        <button class="rt on" id="rtVendor" onclick="setRole('vendor')">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="8" width="14" height="9" rx="1.5"/><path d="M7 8V6.5a3 3 0 016 0V8" stroke-linecap="round"/></svg>
+          <div class="rt-lbl">Vendor User</div>
+          <div class="rt-sub">priya@infosys.com</div>
+        </button>
+      </div>
+      <div class="ff"><label>Email Address</label><input type="email" id="lEmail" value="priya.sharma@infosys.com"/></div>
+      <div class="ff"><label>Password</label><input type="password" value="••••••••"/></div>
+      <button class="l-btn" onclick="doLogin()">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M3 10h14M11 4l6 6-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Sign In
+      </button>
+      <div class="l-hint">Try both roles → <strong>Admin</strong> or <strong>Vendor</strong></div>
+      <div class="l-loading" id="lLoad">
+        <div class="spinner"></div>
+        <div class="l-ltxt" id="lTxt">Authenticating…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ APP ═════════════════════════════════════ -->
+<div class="screen" id="sApp">
+<div class="ag">
+
+  <!-- SIDEBAR -->
+  <aside class="sb">
+    <div class="sb-logo">
+      <div class="sb-mk">
+        <svg viewBox="0 0 20 20" fill="none">
+          <rect x="2" y="4" width="16" height="2.5" rx="1.2" fill="#fff"/>
+          <rect x="2" y="9.5" width="10" height="2.5" rx="1.2" fill="#BFDBFE"/>
+          <rect x="2" y="15" width="12" height="2.5" rx="1.2" fill="#93C5FD"/>
+          <circle cx="16" cy="15" r="3" fill="#fff"/>
+        </svg>
+      </div>
+      <div>
+        <div class="sb-brand">VQMS</div>
+        <div class="sb-ver" id="sbVer">VENDOR · v2.4.1</div>
+      </div>
+    </div>
+    <div class="rb rb-v" id="rb"><div class="rbdot rbd-v" id="rbDot"></div><span id="rbLbl">Vendor User</span></div>
+    <nav class="nav" id="sNav"></nav>
+    <div class="sb-foot">
+      <div class="av av-v" id="sbAv">PS</div>
+      <div>
+        <div class="sb-uname" id="sbName">Priya Sharma</div>
+        <div class="sb-role" id="sbRole">Vendor · Infosys Ltd</div>
+      </div>
+      <div class="odot"></div>
+      <button class="lo-btn" onclick="doLogout()" title="Logout">↩</button>
+    </div>
+  </aside>
+
+  <!-- TOPBAR -->
+  <header class="tb">
+    <div>
+      <div class="tb-ttl" id="tbTtl">My Portal</div>
+      <div class="tb-crumb" id="tbCrumb">vqms / vendor / portal</div>
+    </div>
+    <div class="tb-div"></div>
+    <div class="tb-srch">
+      <svg viewBox="0 0 20 20" fill="none"><circle cx="9" cy="9" r="5" stroke="#64748B" stroke-width="1.5"/><path d="M13 13l3.5 3.5" stroke="#64748B" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <input placeholder="Search queries, articles…"/>
+    </div>
+    <div class="st" id="stTrail" style="display:none"></div>
+    <div class="tb-right">
+      <div class="tb-bell"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a6 6 0 00-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 00-6-6z"/><path d="M8 17a2 2 0 004 0"/></svg><div class="npip"></div></div>
+      <div class="tb-av av-v" id="tbAv">PS</div>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="main" id="mainArea">
+
+    <!-- ── PORTAL ─────────── -->
+    <div class="pane on" id="pane-portal">
+      <div class="hero">
+        <div class="hero-ico"><svg viewBox="0 0 26 26" fill="none"><rect x="3" y="7" width="20" height="13" rx="2.5" stroke="#fff" stroke-width="1.8"/><path d="M8 13h10M8 16.5h6" stroke="#BFDBFE" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+        <div><div class="hero-ttl" id="hTtl">Welcome back, Priya</div><div class="hero-sub" id="hSub">Infosys Ltd · Queries processed by AI agents in real-time.</div></div>
+        <div class="hero-actions">
+          <button class="btn pri" onclick="goWiz()"><svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg> New Query</button>
+          <button class="btn" onclick="goTab('queries')">View All →</button>
+        </div>
+      </div>
+      <div class="kpi3">
+        <div class="kpi" onclick="goTab('queries')"><div class="kpi-accent" style="background:var(--blue)"></div><div class="kpi-lbl">Open Queries</div><div class="kpi-val">6</div><div class="kpi-r"><div class="kpi-t ta">2 near SLA</div><div class="kpi-s">this month</div></div><div class="spark" id="sp1"></div></div>
+        <div class="kpi" onclick="goTab('queries')"><div class="kpi-accent" style="background:var(--green)"></div><div class="kpi-lbl">Resolved</div><div class="kpi-val">14</div><div class="kpi-r"><div class="kpi-t tg">↑ 3 vs last month</div><div class="kpi-s">avg 3.8h</div></div><div class="spark" id="sp2"></div></div>
+        <div class="kpi"><div class="kpi-accent" style="background:var(--amber)"></div><div class="kpi-lbl">Avg Response</div><div class="kpi-val">2.4h</div><div class="kpi-r"><div class="kpi-t tg">↓ 18% faster</div><div class="kpi-s">SLA target 4h</div></div><div class="spark" id="sp3"></div></div>
+      </div>
+      <div class="sec-lbl" style="margin-bottom:-5px">Quick Actions</div>
+      <div class="qa">
+        <div class="qa-c" onclick="goWiz()"><div class="qa-ico" style="background:rgba(37,99,235,.08)">📝</div><div class="qa-lbl">New Query</div><div class="qa-s">Raise a new ticket</div></div>
+        <div class="qa-c" onclick="goTab('queries')"><div class="qa-ico" style="background:rgba(16,185,129,.08)">📋</div><div class="qa-lbl">My Queries</div><div class="qa-s">Track submissions</div></div>
+        <div class="qa-c" onclick="goTab('kb')"><div class="qa-ico" style="background:rgba(124,58,237,.08)">📚</div><div class="qa-lbl">Knowledge Base</div><div class="qa-s">Self-serve answers</div></div>
+        <div class="qa-c" onclick="goTab('prefs')"><div class="qa-ico" style="background:rgba(245,158,11,.08)">⚙️</div><div class="qa-lbl">Preferences</div><div class="qa-s">Notifications & profile</div></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between"><div class="sec-lbl">Recent Queries</div><button class="btn ghost btn sm" onclick="goTab('queries')">View all →</button></div>
+      <div style="display:flex;flex-direction:column;gap:7px" id="recList"></div>
+    </div>
+
+    <!-- ── WIZARD ─────────── -->
+    <div class="pane" id="pane-wizard"><div id="wizWrap"></div></div>
+
+    <!-- ── QUERIES ────────── -->
+    <div class="pane" id="pane-queries">
+      <div class="q-bar">
+        <select class="fsel" id="fSt" onchange="renderQ()"><option value="">All Status</option><option>Open</option><option>In Progress</option><option>Awaiting Vendor</option><option>Resolved</option><option>Breached</option></select>
+        <select class="fsel" id="fPr" onchange="renderQ()"><option value="">All Priority</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>
+        <button class="btn pri btn sm" onclick="goWiz()" style="margin-left:auto"><svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg> New Query</button>
+      </div>
+      <div class="q5" id="qStats5"></div>
+      <div class="qt-wrap"><table class="qt"><thead><tr><th>Query ID</th><th>Subject</th><th>Priority</th><th>Status</th><th>Submitted</th><th>SLA</th><th></th></tr></thead><tbody id="qBody"></tbody></table></div>
+    </div>
+
+    <!-- ── KB ─────────────── -->
+    <div class="pane" id="pane-kb">
+      <div class="kb-hero"><div style="font-size:32px">📚</div><div><div style="font-size:15px;font-weight:600;color:var(--text)">Knowledge Base</div><div style="font-size:12px;color:var(--muted);margin-top:3px">4,218 articles · pgvector indexed · Read-only access</div></div></div>
+      <div class="kb-srch"><svg viewBox="0 0 20 20" fill="none"><circle cx="9" cy="9" r="5.5" stroke="#64748B" stroke-width="1.5"/><path d="M13 13l3.5 3.5" stroke="#64748B" stroke-width="1.5" stroke-linecap="round"/></svg><input placeholder="Search 4,218 articles…"/></div>
+      <div class="kb-cats">
+        <div class="kbc"><div class="kbc-ico">📋</div><div class="kbc-n">Contracts</div><div class="kbc-c">847 articles</div></div>
+        <div class="kbc"><div class="kbc-ico">💳</div><div class="kbc-n">Invoicing</div><div class="kbc-c">612 articles</div></div>
+        <div class="kbc"><div class="kbc-ico">🚚</div><div class="kbc-n">Delivery SLA</div><div class="kbc-c">503 articles</div></div>
+        <div class="kbc"><div class="kbc-ico">🔧</div><div class="kbc-n">Tech Support</div><div class="kbc-c">1,256 articles</div></div>
+      </div>
+      <div class="sec-lbl" style="margin-bottom:2px">Top Matches for You</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="kb-art"><div class="kb-ai" style="background:rgba(37,99,235,.08)">📋</div><div><div class="kb-at">Standard Vendor Contract Amendment Procedure v3.2</div><div class="kb-am">Updated 2 days ago · 1,284 uses</div><div class="kb-tags"><span class="tag">contracts</span><span class="tag">amendment</span><span class="tag">SLA</span></div><div class="kb-match"><span style="font-size:9px;color:var(--muted)">94% match</span><div class="mb"><div class="mf" style="width:94%"></div></div></div></div></div>
+        <div class="kb-art"><div class="kb-ai" style="background:rgba(245,158,11,.08)">💳</div><div><div class="kb-at">Invoice Dispute Resolution — Step-by-Step Guide</div><div class="kb-am">Updated 5 days ago · 932 uses</div><div class="kb-tags"><span class="tag">invoice</span><span class="tag">dispute</span><span class="tag">finance</span></div><div class="kb-match"><span style="font-size:9px;color:var(--muted)">88% match</span><div class="mb"><div class="mf" style="width:88%"></div></div></div></div></div>
+        <div class="kb-art"><div class="kb-ai" style="background:rgba(16,185,129,.08)">🚚</div><div><div class="kb-at">Delivery Delay Escalation Protocol — Tier 1 &amp; 2</div><div class="kb-am">Updated 1 week ago · 710 uses</div><div class="kb-tags"><span class="tag">delivery</span><span class="tag">escalation</span></div><div class="kb-match"><span style="font-size:9px;color:var(--muted)">81% match</span><div class="mb"><div class="mf" style="width:81%"></div></div></div></div></div>
+        <div class="kb-art"><div class="kb-ai" style="background:rgba(124,58,237,.08)">⚖️</div><div><div class="kb-at">SLA Breach Handling &amp; Penalty Calculation Policy</div><div class="kb-am">Updated 4 days ago · 624 uses</div><div class="kb-tags"><span class="tag">SLA</span><span class="tag">penalty</span></div><div class="kb-match"><span style="font-size:9px;color:var(--muted)">76% match</span><div class="mb"><div class="mf" style="width:76%"></div></div></div></div></div>
+      </div>
+    </div>
+
+    <!-- ── PREFS ──────────── -->
+    <div class="pane" id="pane-prefs">
+      <div class="pref-g">
+        <div class="pref-nav">
+          <div class="sec-lbl" style="padding:6px 11px 10px">Preferences</div>
+          <div class="pn on" onclick="pNav(this)">Profile</div>
+          <div class="pn" onclick="pNav(this)">Notifications</div>
+          <div class="pn" onclick="pNav(this)">SLA Alerts</div>
+          <div class="pn" onclick="pNav(this)">Language</div>
+        </div>
+        <div class="pref-panel">
+          <div class="prof-box">
+            <div class="prof-av" id="prefAv">PS</div>
+            <div>
+              <div class="prof-n" id="prefName">Priya Sharma</div>
+              <div class="prof-e" id="prefEmail">priya.sharma@infosys.com</div>
+              <div class="prof-c"><span>🏢</span><span id="prefCo">Infosys Ltd</span> · <span class="badge bb">Vendor User</span></div>
+            </div>
+            <button class="btn btn sm" style="margin-left:auto">Edit</button>
+          </div>
+          <div class="pref-r"><div><div class="pr-l">Email notifications</div><div class="pr-d">Updates on your queries via email</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="pref-r"><div><div class="pr-l">SLA breach alerts</div><div class="pr-d">Alert 2 hours before SLA deadline</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="pref-r"><div><div class="pr-l">AI resolution notifications</div><div class="pr-d">Notify when draft resolution is ready</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="pref-r"><div><div class="pr-l">Weekly digest</div><div class="pr-d">Sunday summary of open queries</div></div><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+          <div class="pref-r"><div><div class="pr-l">Two-factor authentication</div><div class="pr-d">Require OTP on every login</div></div><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px">
+            <button class="btn">Discard</button>
+            <button class="btn pri" onclick="toast('Preferences saved','succ')">Save preferences</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div><!-- /ag -->
+</div><!-- /sApp -->
+
+<!-- DETAIL PANEL -->
+<div class="dp" id="dp">
+  <div class="dp-hd">
+    <div><div class="dp-qid" id="dpId">—</div><div class="dp-ttl" id="dpTtl">—</div></div>
+    <button class="dp-close" onclick="closeDP()">✕</button>
+  </div>
+  <div class="dp-body" id="dpBody"></div>
+  <div class="dp-ft">
+    <input class="dp-ri" id="dpIn" placeholder="Add a note or reply…"/>
+    <button class="btn pri btn sm" onclick="sendR()">Send</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toastEl">Done</div>
+
+<script>
+/* ════════════════════════ STATE ════════════════════════ */
+let ROLE = 'vendor';
+let WS = 1; // wizard step
+let WD = { type:'', subject:'', desc:'', priority:'Medium', ref:'' };
+
+const USERS = {
+  vendor:{ name:'Priya Sharma', ini:'PS', company:'Infosys Ltd', role:'Vendor · Infosys', email:'priya.sharma@infosys.com' },
+  admin: { name:'Rohit Kumar',  ini:'RK', company:'VQMS Internal', role:'Admin · LangGraph', email:'admin@vqms.internal' }
+};
+
+const QTYPES = [
+  {id:'contract',ico:'📋',lbl:'Contract Dispute',sub:'Amendment, clause, penalty'},
+  {id:'invoice', ico:'💳',lbl:'Invoice Issue',   sub:'Billing, payment, PO mismatch'},
+  {id:'delivery',ico:'🚚',lbl:'Delivery Delay',  sub:'Shipment, ETA, logistics'},
+  {id:'tech',    ico:'🔧',lbl:'Tech Support',    sub:'Integration, API, system'},
+  {id:'sla',     ico:'⏱️', lbl:'SLA Clarification',sub:'Policy, terms, breach'},
+  {id:'other',   ico:'💬',lbl:'Other',           sub:'General enquiry'}
+];
+
+let QUERIES = [
+  { id:'VQ-2025-0041', subj:'Contract Amendment — Clause 7.3', type:'Contract Dispute', pri:'High', status:'In Progress', submitted:'Today 08:14', sla:'5h 42m', slaCls:'sla-ok', agent:'ResolutionAgent',
+    tl:[{c:'#10B981',t:'Query received & logged by VQMS',ts:'Today 08:14'},{c:'#3B82F6',t:'TriageAgent: HIGH priority, contract category',ts:'+42s'},{c:'#7C3AED',t:'OrchestratorAgent routed to ResolutionAgent',ts:'+1m 10s'},{c:'#F59E0B',t:'VectorSearchAgent: 3 KB matches (94%, 81%, 72%)',ts:'+1m 58s'},{c:'#3B82F6',t:'ResolutionAgent generating draft via Bedrock…',ts:'ongoing',p:true}],
+    ai:'Based on KB article #847 (94% match), Clause 7.3 refers to the standard penalty schedule (Q1 2024). Amendment has precedent in 14 similar cases — all resolved with a 2.5%/month penalty cap. Recommended: Accept with rider referencing Exhibit C, Section 2.',
+    msgs:[{f:'vendor',t:'We need urgent clarification on the amendment to Clause 7.3 regarding penalty calculations.',ts:'08:14'},{f:'ai',t:'Query received. AI system is reviewing Clause 7.3 against our knowledge base. Expected draft in ~10 minutes.',ts:'08:14 · AI Agent'}]},
+  { id:'VQ-2025-0039', subj:'Invoice Dispute — PO #INF-2025-8821', type:'Invoice Issue', pri:'Critical', status:'Awaiting Vendor', submitted:'Yesterday', sla:'Breached', slaCls:'sla-brch', agent:'EscalationAgent',
+    tl:[{c:'#10B981',t:'Invoice dispute received',ts:'Mar 31 09:02'},{c:'#EF4444',t:'TriageAgent: CRITICAL — SLA breach risk flagged',ts:'+38s'},{c:'#7C3AED',t:'OrchestratorAgent escalated',ts:'+2m'},{c:'#EF4444',t:'SLA BREACHED — automatic escalation triggered',ts:'+4h 02m'},{c:'#F59E0B',t:'Awaiting vendor clarification on PO reference',ts:'ongoing',p:true}],
+    ai:'Invoice #INF-2025-8821 does not match PO #PO-2025-0112 in Salesforce. Discrepancy of ₹42,000 on line item 7. Action required: Please confirm if PO was amended and provide updated PO document.',
+    msgs:[{f:'vendor',t:'PO #INF-2025-8821 shows incorrect line item amounts. Urgent.',ts:'Mar 31 09:02'},{f:'us',t:'Discrepancy found on line item 7. Could you confirm if PO #PO-2025-0112 was recently amended?',ts:'Mar 31 11:34 · Support Team'}]},
+  { id:'VQ-2025-0037', subj:'Delivery Delay — Q2 Shipment Batch #3', type:'Delivery Delay', pri:'Medium', status:'Open', submitted:'Mar 30', sla:'22h', slaCls:'sla-ok', agent:'TriageAgent',
+    tl:[{c:'#10B981',t:'Delivery delay query received',ts:'Mar 30 14:22'},{c:'#3B82F6',t:'TriageAgent: MEDIUM priority, delivery category',ts:'+55s'},{c:'#3B82F6',t:'Assigned to ResolutionAgent queue',ts:'+1m 40s',p:true}],
+    ai:'Q2 batch delays are covered under Clause 12.4. Resolution: Provide updated ETA within 48 hours and apply clause 12.4 extension protocol if delay exceeds 5 business days.',
+    msgs:[{f:'vendor',t:'Batch #3 of Q2 shipment is delayed by ~8 days. Please advise on escalation procedure.',ts:'Mar 30 14:22'}]},
+  { id:'VQ-2025-0035', subj:'SLA Clause 4.2 Clarification Request', type:'SLA Clarification', pri:'Low', status:'Resolved', submitted:'Mar 29', sla:'Closed', slaCls:'sla-ok', agent:'ResponseAgent',
+    tl:[{c:'#10B981',t:'Query received',ts:'Mar 29 10:11'},{c:'#3B82F6',t:'TriageAgent: LOW priority',ts:'+1m'},{c:'#7C3AED',t:'ResolutionAgent drafted response',ts:'+12m'},{c:'#10B981',t:'Response sent — query resolved',ts:'+18m'}],
+    ai:'Clause 4.2 specifies 4h response SLA for P1 and 24h for P2 (updated Q1 2024, Exhibit B).',
+    msgs:[{f:'vendor',t:'Can you confirm the SLA timelines under Clause 4.2?',ts:'Mar 29 10:11'},{f:'us',t:'Clause 4.2: 4h for P1, 24h for P2 (Q1 2024, Exhibit B). Let us know if you need the full exhibit.',ts:'Mar 29 10:29 · AI Resolution'},{f:'vendor',t:'Thank you, that clears it up!',ts:'Mar 29 10:45'}]},
+  { id:'VQ-2025-0032', subj:'API Integration Failure — Salesforce Auth', type:'Tech Support', pri:'High', status:'Resolved', submitted:'Mar 28', sla:'Closed', slaCls:'sla-ok', agent:'ResponseAgent',
+    tl:[{c:'#10B981',t:'API failure query logged',ts:'Mar 28 16:00'},{c:'#EF4444',t:'TriageAgent: HIGH, tech/integration',ts:'+30s'},{c:'#7C3AED',t:'KB article match found',ts:'+2m'},{c:'#10B981',t:'Resolved — OAuth token refresh applied',ts:'+3h 10m'}],
+    ai:'OAuth token expiry. Fix: POST /oauth2/token with grant_type=refresh_token. Set token TTL to 7200s in connected app settings.',
+    msgs:[{f:'vendor',t:'Salesforce connector throws 401 errors every 2 hours.',ts:'Mar 28 16:00'},{f:'us',t:'OAuth token expiry issue. Apply token TTL fix (7200s) per KB article #488.',ts:'Mar 28 19:10 · AI Resolution'}]},
+  { id:'VQ-2025-0028', subj:'New Vendor Onboarding Documentation', type:'Other', pri:'Low', status:'Resolved', submitted:'Mar 26', sla:'Closed', slaCls:'sla-ok', agent:'ResponseAgent',
+    tl:[{c:'#10B981',t:'Query received',ts:'Mar 26 09:30'},{c:'#3B82F6',t:'Routed to onboarding team',ts:'+5m'},{c:'#10B981',t:'Documentation pack sent via email',ts:'+1h 45m'}],
+    ai:'Onboarding pack sent to priya.sharma@infosys.com: vendor registration form, NDA template, payment terms, integration guide.',
+    msgs:[{f:'vendor',t:'Could you send updated onboarding documentation for our subsidiary entity?',ts:'Mar 26 09:30'},{f:'us',t:'Documentation pack sent. Please complete vendor registration within 5 business days.',ts:'Mar 26 11:15 · Support Team'}]}
+];
+
+/* ════════════════ NAV CONFIG ═════════════════ */
+const VENDOR_NAV=[
+  {sec:'My Workspace'},
+  {id:'portal',   lbl:'My Portal',     ico:'🏠', badge:null},
+  {id:'wizard',   lbl:'New Query',     ico:'✏️',  badge:null},
+  {id:'queries',  lbl:'My Queries',    ico:'📋',  badge:'6',  bc:'nb-b'},
+  {id:'kb',       lbl:'Knowledge Base',ico:'📚',  badge:null},
+  {sec:'Account'},
+  {id:'prefs',    lbl:'Preferences',   ico:'⚙️',  badge:null}
+];
+const ADMIN_NAV=[
+  {sec:'Core'},
+  {id:'portal',   lbl:'Dashboard',     ico:'🏠',  badge:null},
+  {id:'queries',  lbl:'All Queries',   ico:'📋',  badge:'12', bc:'nb-r'},
+  {id:'kb',       lbl:'Knowledge Base',ico:'📚',  badge:null},
+  {sec:'System'},
+  {id:'prefs',    lbl:'Settings',      ico:'⚙️',  badge:null}
+];
+
+/* ════════════════ LOGIN ═════════════════════ */
+function setRole(r){
+  ROLE=r;
+  document.getElementById('rtAdmin').classList.toggle('on',r==='admin');
+  document.getElementById('rtVendor').classList.toggle('on',r==='vendor');
+  document.getElementById('lEmail').value=r==='admin'?'admin@vqms.internal':'priya.sharma@infosys.com';
+}
+setRole('vendor');
+
+function doLogin(){
+  const ld=document.getElementById('lLoad'),lt=document.getElementById('lTxt');
+  ld.classList.add('on');
+  const msgs=['Authenticating…','Verifying permissions…','Loading workspace…'];
+  let i=0;const iv=setInterval(()=>{lt.textContent=msgs[i++]||msgs[2];},700);
+  setTimeout(()=>{clearInterval(iv);ld.classList.remove('on');
+    document.getElementById('sLogin').classList.remove('on');
+    document.getElementById('sApp').classList.add('on');
+    initApp();
+  },2200);
+}
+function doLogout(){
+  document.getElementById('sApp').classList.remove('on');
+  document.getElementById('sLogin').classList.add('on');
+}
+
+/* ════════════════ INIT ══════════════════════ */
+function initApp(){
+  const u=USERS[ROLE],v=ROLE==='vendor';
+  document.getElementById('sbVer').textContent=(v?'VENDOR':'ADMIN')+' · v2.4.1';
+  const rb=document.getElementById('rb'); rb.className='rb '+(v?'rb-v':'rb-a');
+  document.getElementById('rbDot').className='rbdot '+(v?'rbd-v':'rbd-a');
+  document.getElementById('rbLbl').textContent=v?'Vendor User':'Administrator';
+  ['sbAv','tbAv','prefAv'].forEach(id=>{const el=document.getElementById(id);if(el){el.textContent=u.ini;el.className=el.className.replace(/av-[va]/g,'')+'av-'+(v?'v':'a');}});
+  document.getElementById('sbName').textContent=u.name;
+  document.getElementById('sbRole').textContent=u.role;
+  document.getElementById('prefName').textContent=u.name;
+  document.getElementById('prefEmail').textContent=u.email;
+  document.getElementById('prefCo').textContent=u.company;
+  document.getElementById('hTtl').textContent='Welcome back, '+u.name.split(' ')[0];
+  document.getElementById('hSub').textContent=u.company+' · Queries processed by AI agents in real-time.';
+  buildNav(v?VENDOR_NAV:ADMIN_NAV);
+  buildSparks();
+  renderRecent();
+  renderQ();
+  renderQStats();
+  goTab('portal');
+}
+
+/* ════════════════ NAV ═══════════════════════ */
+function buildNav(items){
+  const nav=document.getElementById('sNav');nav.innerHTML='';
+  items.forEach(item=>{
+    if(item.sec){const s=document.createElement('div');s.className='nav-s';s.textContent=item.sec;nav.appendChild(s);return;}
+    const el=document.createElement('div');el.className='ni';el.dataset.tab=item.id;
+    el.onclick=()=>item.id==='wizard'?goWiz():goTab(item.id);
+    el.innerHTML=`<span style="font-size:13px;flex-shrink:0">${item.ico}</span><span>${item.lbl}</span>${item.badge?`<span class="nbadge ${item.bc||'nb-b'}">${item.badge}</span>`:''}`;
+    nav.appendChild(el);
+  });
+}
+
+function goTab(id){
+  document.querySelectorAll('.ni').forEach(n=>n.classList.toggle('on',n.dataset.tab===id));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  const pane=document.getElementById('pane-'+id);if(pane)pane.classList.add('on');
+  const titles={portal:'My Portal',wizard:'New Query',queries:'My Queries',kb:'Knowledge Base',prefs:'Preferences'};
+  document.getElementById('tbTtl').textContent=titles[id]||id;
+  document.getElementById('tbCrumb').textContent='vqms/vendor/'+(id==='portal'?'home':id);
+  document.getElementById('stTrail').style.display=id==='wizard'?'flex':'none';
+  if(id!=='wizard')document.getElementById('wizWrap').innerHTML='';
+}
+
+function goWiz(){goTab('wizard');startWiz();}
+
+/* ════════════════ SPARKS ════════════════════ */
+function buildSparks(){
+  bSp('sp1','#3B82F6',[4,5,4,6,5,7,6,7,6,6]);
+  bSp('sp2','#10B981',[8,9,10,11,10,12,12,13,14,14]);
+  bSp('sp3','#F59E0B',[3.8,3.5,4.2,3.9,3.6,3.2,2.8,2.6,2.5,2.4]);
+}
+function bSp(id,c,d){const el=document.getElementById(id);if(!el)return;const mx=Math.max(...d);el.innerHTML=d.map(v=>`<div class="sp" style="height:${Math.round(v/mx*18)}px;background:${c};opacity:.7"></div>`).join('');}
+
+/* ════════════════ BADGES ════════════════════ */
+const SM={Open:'bb','In Progress':'bp','Awaiting Vendor':'ba',Resolved:'bg',Breached:'br'};
+const PM={Critical:'br',High:'ba',Medium:'bb',Low:'bm'};
+const sb=(s)=>`<span class="badge ${SM[s]||'bm'}">${s}</span>`;
+const pb=(p)=>`<span class="badge ${PM[p]||'bm'}">${p}</span>`;
+
+/* ════════════════ RECENT LIST ═══════════════ */
+function renderRecent(){
+  const el=document.getElementById('recList');if(!el)return;
+  el.innerHTML=QUERIES.slice(0,4).map(q=>`
+    <div class="mq" onclick="openDP('${q.id}')">
+      <div class="mq-id">${q.id}</div>
+      <div class="mq-s">${q.subj}</div>
+      ${sb(q.status)}${pb(q.pri)}
+      <div class="mq-t">${q.submitted}</div>
+    </div>`).join('');
+}
+
+/* ════════════════ QUERY TABLE ═══════════════ */
+function renderQStats(){
+  const el=document.getElementById('qStats5');if(!el)return;
+  const stats=[
+    {l:'Open',   n:QUERIES.filter(q=>q.status==='Open').length,              c:'var(--blue)'},
+    {l:'In Prog',n:QUERIES.filter(q=>q.status==='In Progress').length,       c:'var(--purple)'},
+    {l:'Awaiting',n:QUERIES.filter(q=>q.status==='Awaiting Vendor').length,  c:'var(--amber)'},
+    {l:'Resolved',n:QUERIES.filter(q=>q.status==='Resolved').length,         c:'var(--green)'},
+    {l:'Breached',n:QUERIES.filter(q=>q.slaCls==='sla-brch').length,         c:'var(--rose)'}
+  ];
+  el.innerHTML=stats.map(s=>`<div class="qs"><div class="qs-n" style="color:${s.c}">${s.n}</div><div class="qs-l">${s.l}</div></div>`).join('');
+}
+
+function renderQ(){
+  const tb=document.getElementById('qBody');if(!tb)return;
+  const fs=document.getElementById('fSt')?.value||'',fp=document.getElementById('fPr')?.value||'';
+  const rows=QUERIES.filter(q=>(fs===''||q.status===fs)&&(fp===''||q.pri===fp));
+  tb.innerHTML=rows.map(q=>`
+    <tr class="qr" id="qr-${q.id}" onclick="toggleRow('${q.id}',this)">
+      <td class="td-id">${q.id}</td>
+      <td class="td-s" title="${q.subj}">${q.subj}</td>
+      <td>${pb(q.pri)}</td>
+      <td>${sb(q.status)}</td>
+      <td class="td-a">${q.submitted}</td>
+      <td class="${q.slaCls}">${q.sla}</td>
+      <td><button class="btn ghost btn sm" onclick="event.stopPropagation();openDP('${q.id}')">Details →</button></td>
+    </tr>
+    <tr class="exp-row" id="er-${q.id}" style="display:none">
+      <td colspan="7">
+        <div class="exp-inner">
+          <div>
+            <div class="exp-ttl">Timeline</div>
+            <div class="tl-m">${q.tl.slice(0,3).map(t=>`
+              <div class="tlm-i">
+                <div class="tlm-d" style="background:${t.c}${t.p?';animation:pulse 2s infinite':''}"></div>
+                <div><div>${t.t}</div><div class="tlm-ts">${t.ts}</div></div>
+              </div>`).join('')}
+            </div>
+          </div>
+          <div>
+            <div class="exp-ttl">AI Resolution Draft</div>
+            <div class="ai-box">
+              <div class="ai-lbl"><svg width="10" height="10" viewBox="0 0 20 20" fill="#059669"><circle cx="10" cy="10" r="8"/><path d="M7 10l2 2 4-4" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>Bedrock · ResolutionAgent</div>
+              ${q.ai}
+            </div>
+          </div>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function toggleRow(id,row){
+  const er=document.getElementById('er-'+id);
+  const open=er.style.display!=='none';
+  document.querySelectorAll('.exp-row').forEach(r=>r.style.display='none');
+  document.querySelectorAll('.qr').forEach(r=>r.classList.remove('sel'));
+  if(!open){er.style.display='table-row';row.classList.add('sel');}
+}
+
+/* ════════════════ DETAIL PANEL ══════════════ */
+function openDP(id){
+  const q=QUERIES.find(x=>x.id===id);if(!q)return;
+  document.getElementById('dpId').textContent=q.id;
+  document.getElementById('dpTtl').textContent=q.subj;
+  document.getElementById('dpBody').innerHTML=`
+    <div style="display:flex;gap:7px;flex-wrap:wrap">${sb(q.status)} ${pb(q.pri)} ${q.slaCls==='sla-brch'?'<span class="badge br">SLA Breached</span>':''}</div>
+    <div class="dp-mg">
+      <div class="dp-mi"><div class="dp-mk">Type</div><div class="dp-mv">${q.type}</div></div>
+      <div class="dp-mi"><div class="dp-mk">Agent</div><div class="dp-mv" style="color:var(--blue);font-family:var(--mono);font-size:11px">${q.agent}</div></div>
+      <div class="dp-mi"><div class="dp-mk">Submitted</div><div class="dp-mv">${q.submitted}</div></div>
+      <div class="dp-mi"><div class="dp-mk">SLA</div><div class="dp-mv ${q.slaCls}">${q.sla}</div></div>
+    </div>
+    <div>
+      <div class="dp-sec">Timeline</div>
+      <div class="dp-tl">${q.tl.map((t,i)=>`
+        <div class="dp-ti">
+          <div class="dp-td" style="background:${t.c}${t.p?';animation:pulse 1.8s infinite':''}"></div>
+          ${i<q.tl.length-1?'<div class="dp-tl-ln"></div>':''}
+          <div><div class="dp-tt">${t.t}</div><div class="dp-ts">${t.ts}</div></div>
+        </div>`).join('')}
+      </div>
+    </div>
+    <div>
+      <div class="dp-sec">AI Resolution Draft</div>
+      <div style="background:linear-gradient(135deg,rgba(16,185,129,.06),rgba(37,99,235,.05));border:1px solid rgba(16,185,129,.18);border-radius:var(--r);padding:12px 14px">
+        <div class="ai-lbl"><svg width="10" height="10" viewBox="0 0 20 20" fill="#059669"><circle cx="10" cy="10" r="8"/><path d="M7 10l2 2 4-4" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>Bedrock · ResolutionAgent · Confidence 94%</div>
+        <div style="font-size:12px;line-height:1.65;color:var(--text)">${q.ai}</div>
+      </div>
+    </div>
+    <div>
+      <div class="dp-sec">Communication Thread</div>
+      <div class="dp-chat">${q.msgs.map(m=>`
+        <div>
+          <div class="cm ${m.f==='vendor'?'cm-you':m.f==='ai'?'cm-ai':'cm-us'}">${m.f==='ai'?`<div class="ai-head"><svg width="10" height="10" viewBox="0 0 20 20" fill="#059669"><circle cx="10" cy="10" r="8"/></svg>AI Agent</div>`:''}${m.t}</div>
+          <div class="cm-meta">${m.f==='vendor'?'You · ':''}${m.ts}</div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  document.getElementById('dp').classList.add('on');
+}
+function closeDP(){document.getElementById('dp').classList.remove('on');}
+function sendR(){const i=document.getElementById('dpIn');if(!i.value.trim())return;toast('Reply sent','succ');i.value='';}
+
+/* ════════════════ WIZARD ════════════════════ */
+function startWiz(){WS=1;WD={type:'',subject:'',desc:'',priority:'Medium',ref:''};renderWiz();}
+
+function renderWiz(){
+  const wrap=document.getElementById('wizWrap');if(!wrap)return;
+  updateTrail();
+  if(WS===4){renderSubmitting();return;}
+  if(WS===5){renderSuccess();return;}
+  const si=[{n:1,l:'Query Type',s:'What kind of issue?'},{n:2,l:'Details',s:'Describe your query.'},{n:3,l:'Review',s:'Confirm before submitting.'}];
+  const c=si[WS-1];
+  wrap.innerHTML=`
+    <div class="card" style="padding:18px 22px;margin-bottom:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="font-size:13px;font-weight:600;color:var(--text)">New Query — Step ${WS} of 3</div>
+        <button class="btn ghost btn sm" onclick="goTab('portal')">✕ Cancel</button>
+      </div>
+      <div class="wiz-steps">
+        ${si.map((s,i)=>`
+          <div class="ws">
+            <div class="ws-c ${WS>s.n?'done':WS===s.n?'curr':''}">${WS>s.n?`<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M5 10l4 4 6-7" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`:s.n}</div>
+            <div class="ws-i"><div class="ws-n">Step ${s.n}</div><div class="ws-l ${WS<s.n?'dim':''}">${s.l}</div></div>
+            ${i<si.length-1?`<div class="ws-line ${WS>s.n?'done':WS===s.n?'prog':''}"></div>`:''}
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="card" style="padding:24px">
+      <div class="wiz-ttl">${c.l}</div>
+      <div class="wiz-sub">${c.s}</div>
+      ${WS===1?step1():WS===2?step2():step3()}
+      <div class="wiz-ft">
+        ${WS>1?`<button class="btn" onclick="wizBack()">← Back</button>`:`<button class="btn ghost" onclick="goTab('portal')">Cancel</button>`}
+        <button class="btn pri" onclick="wizNext()">${WS===3?'Submit Query →':'Continue →'}</button>
+      </div>
+    </div>`;
+}
+
+function step1(){
+  return `<div class="ty-grid">${QTYPES.map(t=>`
+    <div class="ty ${WD.type===t.id?'on':''}" onclick="selType('${t.id}',this)">
+      <div class="ty-ico">${t.ico}</div>
+      <div class="ty-lbl">${t.lbl}</div>
+      <div class="ty-sub">${t.sub}</div>
+    </div>`).join('')}</div>`;
+}
+
+function step2(){
+  const t=QTYPES.find(x=>x.id===WD.type)||{ico:'💬',lbl:'Query'};
+  return `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bdim);border:1px solid rgba(37,99,235,.2);border-radius:var(--r);margin-bottom:16px;font-size:12.5px">
+      <span>${t.ico}</span><strong>${t.lbl}</strong>
+      <button class="btn ghost btn sm" style="margin-left:auto;font-size:10px" onclick="WS=1;renderWiz()">Change</button>
+    </div>
+    <div class="fg2"><label>Subject *</label>
+      <input id="ws" value="${WD.subject}" placeholder="Brief description of the issue" oninput="WD.subject=this.value"/>
+    </div>
+    <div class="fg2"><label>Description *</label>
+      <textarea id="wd" rows="4" placeholder="Include clause numbers, dates, order IDs, amounts…" oninput="WD.desc=this.value;document.getElementById('cc').textContent=this.value.length+'/1000'">${WD.desc}</textarea>
+      <div class="cc" id="cc">${WD.desc.length}/1000</div>
+    </div>
+    <div class="fg2-row">
+      <div class="fg2"><label>Priority</label>
+        <div class="pri-row">${['Critical','High','Medium','Low'].map(p=>`<button class="po ${getPriCls(p)}" onclick="setPri('${p}',this)">${p}</button>`).join('')}</div>
+      </div>
+      <div class="fg2"><label>Reference (optional)</label>
+        <input id="wr" value="${WD.ref}" placeholder="PO #, Contract ID, Ticket #…" oninput="WD.ref=this.value"/>
+      </div>
+    </div>`;
+}
+
+function getPriCls(p){const c={Critical:'pc',High:'ph',Medium:'pm',Low:'pl'};return WD.priority===p?c[p]:'';}
+
+function step3(){
+  const t=QTYPES.find(x=>x.id===WD.type)||{ico:'💬',lbl:'Query'};
+  const sla={Critical:'2 hours',High:'4 hours',Medium:'8 hours',Low:'24 hours'};
+  return `
+    <div class="rv-card">
+      ${[['Query Type',t.ico+' '+t.lbl],['Subject',WD.subject||'—'],['Description',WD.desc?WD.desc.substring(0,80)+(WD.desc.length>80?'…':''):'—'],['Priority',WD.priority],['Reference',WD.ref||'—'],['Assigned to','Auto (TriageAgent)'],['Company',USERS[ROLE].company]]
+        .map(([k,v])=>`<div class="rv-row"><div class="rv-k">${k}</div><div class="rv-v">${v}</div></div>`).join('')}
+    </div>
+    <div class="sla-est">
+      <div style="font-size:22px">⏱️</div>
+      <div>
+        <div style="font-size:12.5px;font-weight:600;color:#059669">Expected SLA: ${sla[WD.priority]||'8 hours'}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Auto-triaged and routed to the AI pipeline immediately after submission.</div>
+      </div>
+    </div>`;
+}
+
+function selType(id,el){
+  WD.type=id;
+  document.querySelectorAll('.ty').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function setPri(p,el){
+  WD.priority=p;
+  const map={Critical:'pc',High:'ph',Medium:'pm',Low:'pl'};
+  document.querySelectorAll('.po').forEach(b=>{
+    const bpri=b.textContent.trim();b.className='po '+(bpri===p?map[p]:'');
+  });
+}
+
+function wizNext(){
+  if(WS===1){if(!WD.type){toast('Please select a query type','');return;}WS=2;renderWiz();return;}
+  if(WS===2){
+    WD.subject=document.getElementById('ws')?.value||WD.subject;
+    WD.desc=document.getElementById('wd')?.value||WD.desc;
+    WD.ref=document.getElementById('wr')?.value||WD.ref;
+    if(!WD.subject.trim()){toast('Please enter a subject','');return;}
+    if(!WD.desc.trim()){toast('Please describe your issue','');return;}
+    WS=3;renderWiz();return;
+  }
+  if(WS===3){WS=4;renderWiz();return;}
+}
+
+function wizBack(){WS=Math.max(1,WS-1);renderWiz();}
+
+function renderSubmitting(){
+  const msgs=['Connecting to VQMS pipeline','Running TriageAgent…','Scoring priority & category…','Routing to ResolutionAgent…','Generating query ID…'];
+  document.getElementById('wizWrap').innerHTML=`
+    <div class="card" style="padding:24px">
+      <div class="sub-anim">
+        <div class="sub-ring"></div>
+        <div style="font-size:16px;font-weight:600;color:var(--text)">Submitting your query…</div>
+        <div style="font-size:12px;color:var(--muted);font-family:var(--mono)" id="smsg">Connecting…</div>
+      </div>
+    </div>`;
+  let i=0;const iv=setInterval(()=>{const el=document.getElementById('smsg');if(el)el.textContent=msgs[i]||msgs[msgs.length-1];i++;},650);
+  setTimeout(()=>{
+    clearInterval(iv);
+    const nid='VQ-2025-0'+(QUERIES.length+42);
+    QUERIES.unshift({
+      id:nid,subj:WD.subject,type:(QTYPES.find(x=>x.id===WD.type)||{lbl:'Other'}).lbl,
+      pri:WD.priority,status:'Open',submitted:'Just now',sla:'8h',slaCls:'sla-ok',agent:'TriageAgent',
+      tl:[{c:'#10B981',t:'Query received & logged',ts:'Just now'},{c:'#3B82F6',t:'TriageAgent classifying — '+WD.priority+' priority',ts:'+12s',p:true}],
+      ai:'AI is processing your query against the knowledge base. Draft resolution available shortly.',
+      msgs:[{f:'vendor',t:WD.desc,ts:'Just now'},{f:'ai',t:'Query received. TriageAgent classifying. Response expected in '+{Critical:'2h',High:'4h',Medium:'8h',Low:'24h'}[WD.priority]+'.',ts:'Just now · AI Agent'}]
+    });
+    renderRecent();renderQ();renderQStats();
+    WS=5;renderWiz();
+  },3300);
+}
+
+function renderSuccess(){
+  const q=QUERIES[0];
+  updateTrail();
+  document.getElementById('wizWrap').innerHTML=`
+    <div class="card" style="padding:24px">
+      <div class="succ">
+        <div class="succ-ck">
+          <svg width="38" height="38" viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="20" r="18" stroke="#10B981" stroke-width="2"/>
+            <path d="M12 20l6 6 10-12" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="50" stroke-dashoffset="50" style="animation:tick .5s .3s ease forwards"/>
+          </svg>
+        </div>
+        <div class="succ-ttl">Query Submitted Successfully!</div>
+        <div class="succ-sub">Your query has been received and is being processed by the AI agent pipeline. You'll receive email updates as it progresses.</div>
+        <div class="succ-id">${q.id}</div>
+        <div class="track-box">
+          <div class="sec-lbl" style="margin-bottom:8px">What happens next</div>
+          ${[{d:'#10B981',l:'Query received & logged',ts:'✓ Done'},{d:'#3B82F6',l:'TriageAgent classifying priority',ts:'In progress…'},{d:'#7C3AED',l:'OrchestratorAgent routing',ts:'Pending'},{d:'#9CA3AF',l:'ResolutionAgent generating draft',ts:'Pending'},{d:'#9CA3AF',l:'Response sent to you',ts:'Pending'}].map(r=>`
+            <div class="tr-r"><div class="tr-dot" style="background:${r.d}"></div><div class="tr-lbl">${r.l}</div><div class="tr-ts">${r.ts}</div></div>`).join('')}
+        </div>
+        <div class="succ-acts">
+          <button class="btn" onclick="goTab('queries')">View My Queries</button>
+          <button class="btn pri" onclick="openDP('${q.id}');goTab('queries')">Track This Query →</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function updateTrail(){
+  const el=document.getElementById('stTrail');if(!el)return;
+  if(WS>=5){el.innerHTML=`<span class="sc done">✓ Type</span><span>›</span><span class="sc done">✓ Details</span><span>›</span><span class="sc done">✓ Review</span><span>›</span><span class="sc done">✓ Submitted</span>`;return;}
+  el.innerHTML=['Type','Details','Review'].map((s,i)=>`${i>0?'<span style="color:var(--sub)">›</span>':''}<span class="sc ${WS>i+1?'done':WS===i+1?'curr':''}">${WS>i+1?'✓ ':' '}${s}</span>`).join('');
+}
+
+/* ════════════════ PREFS NAV ═════════════════ */
+function pNav(el){document.querySelectorAll('.pn').forEach(e=>e.classList.remove('on'));el.classList.add('on');}
+
+/* ════════════════ TOAST ═════════════════════ */
+function toast(msg,type=''){
+  const t=document.getElementById('toastEl');
+  t.textContent=(type==='succ'?'✓ ':type==='info'?'ℹ ':'')+msg;
+  t.className='toast on '+(type||'');
+  setTimeout(()=>t.classList.remove('on'),2800);
+}
+</script>
+</body>
+</html>
